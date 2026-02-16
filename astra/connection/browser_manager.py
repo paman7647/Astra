@@ -30,7 +30,7 @@ logger = logging.getLogger("Astra.Browser")
 
 class BrowserController:
  """
- Expert-grade controller for the Playwright browser engine.
+ Controller for the Playwright browser engine.
 
  This class ensures that only one instance of Astra uses a specific
  session directory and provides a stable interface for page interactions.
@@ -127,7 +127,7 @@ class BrowserController:
   """
   self._acquire_session_lock()
 
-  # Expert Port: Aggressive cleanup of stale processes and locks
+  # Cleanup stale processes and locks.
   self._terminate_profile_processes(self.session_path)
   for lock_name in ["SingletonLock", "lock", ".parentlock"]:
    lock_p = os.path.join(self.session_path, lock_name)
@@ -221,7 +221,7 @@ class BrowserController:
    return "OFFLINE"
 
   try:
-   # Expert Tip: Use a combination of DOM inspection and Global state
+   # Match using DOM inspection and Global state.
    return await self._page.evaluate("""
     () => {
      const check = (sel) => !!document.querySelector(sel);

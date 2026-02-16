@@ -16,7 +16,7 @@ logger = logging.getLogger("Astra.System")
 
 class TaskSupervisor:
  """
- Expert-grade task manager.
+ Task manager.
 
  Tracks background loops and ensures they are cleanly terminated
  when the client stops.

@@ -21,7 +21,7 @@ logger = logging.getLogger("Astra.Group")
 
 class GroupMethods:
  """
- Expert-grade API for Group administration.
+ API for Group administration.
  """
 
  def __init__(self, client: 'Client'):

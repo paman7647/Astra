@@ -18,10 +18,10 @@ logger = logging.getLogger("Astra.Engine")
 
 class EngineAPI:
  """
- Expert-level interface for WhatsApp engine operations.
+ Interface for WhatsApp engine operations.
 
- This class orchestrates calls to the ProtocolBridge and translates
- the responses into usable Python objects.
+ This class handles calls to the ProtocolBridge and translates
+ the responses into Python objects.
  """
 
  def __init__(self, bridge: ProtocolBridge, client: Any = None):

@@ -50,19 +50,8 @@ class Client:
  """
  The main Astra Client.
 
- This class orchestrates the browser engine, the bridge protocol,
- and the event system to provide a seamless WhatsApp automation experience.
-
- Example usage:
-  >>> from astra import Client, Filters
-  >>>
-  >>> client = Client(phone="1234567890")
-  >>>
-  >>> @client.on("message", Filters.text_contains("hi"))
-  >>> async def on_hi(msg):
-  >>>  await msg.reply("Hello from Astra! 🚀")
-  >>>
-  >>> client.run_forever()
+ Handles the browser engine, protocol bridge, and event system 
+ to provide a high-level API for WhatsApp automation.
  """
 
  # --- Global Class Decorators (for Plugins) ---
@@ -80,10 +69,11 @@ class Client:
   Initialize the Astra Client.
 
   Args:
-   session_id: A unique name for this session (used for profile caching).
-   phone: Your WhatsApp phone number (with country code).
-   headless: Whether to run the browser without a window.
-   log_level: The logging sensitivity (e.g., logging.DEBUG).
+   session_id: A unique identifier for the session (affects profile caching).
+   phone: The WhatsApp phone number (e.g., "919876543210").
+   headless: If True, runs the browser without a visual window.
+   log_level: Sensitivity of the internal logger.
+   show_banner: Whether to print the Astra banner on startup.
   """
   # 1. Configuration
   self.session_id = session_id
@@ -252,7 +242,7 @@ class Client:
 
  async def restart(self):
   """
-  Expert-grade engine restart.
+  # Restart engine.
   Cleans up browser, processes, and locks before starting fresh.
   """
   logger.warning("Astra Engine restart initiated...")
@@ -263,7 +253,7 @@ class Client:
 
  async def run_forever(self):
   """
-  Expert-grade blocking loop.
+  # Blocking loop.
   Keeps the client alive and handles auto-restarts indefinitely.
   """
   logger.info("Running. Press Ctrl+C to stop.")
@@ -497,8 +487,12 @@ class Client:
 
  def run_forever_sync(self):
   """
-  Convenience method to run the client in a blocking fashion.
-  Wraps start() and run_until_disconnected() in a new event loop.
+  Main blocking entry point. Runs the client until the event loop 
+  is stopped or an unrecoverable error occurs.
+  
+  Environment Variables:
+   TRACE_ERROR (bool): If true, prints full Python stack traces on failure.
+               Defaults to False (shows clean error + hint).
   """
   loop = asyncio.new_event_loop()
   asyncio.set_event_loop(loop)
@@ -506,6 +500,14 @@ class Client:
    loop.run_until_complete(self.run_until_disconnected())
   except KeyboardInterrupt:
    pass
+  except Exception as e:
+   import os
+   if os.environ.get("TRACE_ERROR", "false").lower() == "true":
+    raise e
+   else:
+    # Clean error output for end-users
+    print(f"Error: {e}")
+    exit(1)
   finally:
    loop.close()
 

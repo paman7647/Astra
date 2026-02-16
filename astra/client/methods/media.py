@@ -10,7 +10,7 @@ This module provides the MediaMethods mixin for the Astra Client.
 import logging
 import base64
 import os
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, Any, Callable, TYPE_CHECKING
 
 if TYPE_CHECKING:
  from ..client import Client
@@ -19,7 +19,7 @@ logger = logging.getLogger("Astra.Media")
 
 class MediaMethods:
  """
- Expert-grade API for Media handling.
+ API for Media handling.
  """
 
  def __init__(self, client: 'Client'):

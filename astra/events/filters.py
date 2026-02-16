@@ -146,8 +146,7 @@ class CommandCriterion(Criterion):
 
 class Filters:
  """
- Expert-designed collection of event matching criteria.
- Inspired by Telethon and Pyrogram.
+ Collection of event matching criteria.
  """
 
  # --- Direction & Identity ---

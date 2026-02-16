@@ -143,8 +143,8 @@ window.Astra = window.Astra || {};
    }
   }
 
-  // DOM Fallback: Expert Selector (cell-frame-container)
-  console.log(`[Astra] Using advanced DOM fallback for chat: ${chatId}`);
+  // DOM Fallback: Main Selector (cell-frame-container)
+  console.log(`[Astra] Using DOM fallback for chat: ${chatId}`);
   const idStr = (chatId && chatId._serialized) ? chatId._serialized : String(chatId);
   const cells = document.querySelectorAll('[data-testid="cell-frame-container"]');
   for (const cell of cells) {

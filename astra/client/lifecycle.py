@@ -16,7 +16,7 @@ logger = logging.getLogger("Astra.Status")
 
 class LifeCycleController:
  """
- Expert-grade state machine for managing client health and transitions.
+ State machine for managing client health and transitions.
  """
 
  def __init__(self):

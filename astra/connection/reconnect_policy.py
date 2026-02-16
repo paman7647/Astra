@@ -10,6 +10,7 @@ It uses exponential backoff to avoid overwhelming the server.
 
 import random
 import logging
+from typing import Optional
 from ..constants import MAX_RECONNECT_ATTEMPTS, RECONNECT_DELAY_MAX
 
 logger = logging.getLogger("Astra.Connection")

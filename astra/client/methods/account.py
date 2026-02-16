@@ -21,7 +21,7 @@ logger = logging.getLogger("Astra.Account")
 
 class AccountMethods:
  """
- Expert-grade API for Privacy and Account settings.
+ API for Privacy and Account settings.
  """
 
  def __init__(self, client: 'Client'):

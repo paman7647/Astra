@@ -49,7 +49,7 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 .pytype/
-
+test_pairing_modular.py
 # -- Sphinx docs build ----------------------------------------
 docs/_build/
 

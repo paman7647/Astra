@@ -16,7 +16,7 @@ logger = logging.getLogger("Astra.Transformer")
 
 class DataTransformer:
  """
- Expert-grade transformer for bridge payloads.
+ Transformer for bridge payloads.
 
  Responsible for validating and hydrating Astra models from raw
  JavaScript runtime dictionaries.

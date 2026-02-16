@@ -16,7 +16,7 @@ logger = logging.getLogger("Astra.Events")
 
 class EventEmitter:
  """
- Expert-grade event registry.
+ Event registry.
 
  Allows functions to subscribe to specific event names and provides
  mechanisms for firing events with automatic task scheduling for sync

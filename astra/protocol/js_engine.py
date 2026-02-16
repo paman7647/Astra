@@ -47,7 +47,7 @@ JS_ENGINE_SOURCE = "\n".join([
  FIREFOX_DOM_CODE,
  IDB_CACHE_CODE,
 
- # --- Expert Proxy Layer ---
+ # --- Normalization Layer ---
  "(function() {",
  " const A = window.Astra;",
  " ",

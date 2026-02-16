@@ -20,10 +20,9 @@ logger = logging.getLogger("Astra.Conversation")
 
 class Conversation:
  """
- Expert-grade Conversation manager.
+ Conversation manager.
 
  Provides an imperative interface for interactive message flows.
- Inspired by Telethon's Conversation API.
 
  Example:
   async with client.conversation(chat_id) as conv:

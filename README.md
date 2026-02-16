@@ -39,6 +39,7 @@ We built this because existing libraries were either too slow, too brittle, or a
 | **Groups** | ✅ | Extensive admin controls: promote/demote, change settings, manage participants. |
 | **Privacy** | ✅ | Detailed control over who sees your profile, status, and last seen. |
 | **Events** | ✅ | Real-time event loop to listen for new messages, status updates, and more. |
+| **Phone Pairing** | ✅ | Login using your phone number instead of scanning a QR code. |
 
 ---
 
@@ -58,7 +59,9 @@ python -m playwright install chromium
 
 ## 🛠️ Quick Start
 
-Here is the shortest way to get a bot running. This will print a QR code in your terminal—scan it with WhatsApp on your phone to log in.
+### Option A: QR Code Login
+
+Here is the shortest way to get a bot running. This will print a QR code in your terminal—scan it with WhatsApp on your phone.
 
 ```python
 import asyncio
@@ -85,6 +88,17 @@ if __name__ == "__main__":
  asyncio.run(main())
 ```
 
+### Option B: Phone Number Pairing
+
+If you can't scan a QR code, you can use phone number pairing. Astra will print an 8-character code that you enter on your phone.
+
+```python
+from astra import Client
+
+client = Client(session_id="pairing_bot", phone="919876543210")
+client.run_forever_sync()
+```
+👉 Enter the code printed in the terminal into WhatsApp > Linked Devices > Link with phone number.
 👉 **[Check out the examples folder](examples/)** for more scripts like Group Management, Media Sending, and Background Tasks.
 
 ---

@@ -4,7 +4,7 @@
 # -----------------------------------------------------------
 
 """
-Astra: A expert-grade, expert-grade WhatsApp userbot framework.
+Astra: A WhatsApp userbot framework.
 """
 
 from .client.client import Client
@@ -12,5 +12,5 @@ from .events.filters import Filters
 from .models import User, Chat, Message, ClientStatus
 from .errors import AstraError
 
-__version__ = "0.0.1b1"
+__version__ = "0.0.1b3"
 __all__ = ["Client", "Filters", "User", "Chat", "Message", "AstraError", "ClientStatus"]

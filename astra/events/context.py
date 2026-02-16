@@ -52,7 +52,7 @@ class EventContext:
   self.sender_id = self._extract_id(event, ['sender', 'author', 'from'])
   self.message_id = self._extract_id(event, ['id', 'msg_id'])
 
-  # Expert Normalization
+  # Normalization
   self.from_me = bool(self._extract_bool(event, ['from_me', 'fromMe']))
   self.type = str(getattr(event, 'type', 'chat'))
   self.is_media = bool(getattr(event, 'hasMedia', False) or self.type in ['image', 'video', 'audio', 'document', 'sticker', 'ptt'])
@@ -90,7 +90,7 @@ class EventContext:
 
  async def respond(self, text: str, **kwargs) -> Any:
   """
-  Expert-grade response logic.
+  # Response logic.
   Edits the message if it's outgoing (from bot), otherwise replies.
   Now includes robust fallback for self-chats and bridge failures.
   """
@@ -106,7 +106,7 @@ class EventContext:
  # --- Internal Helpers ---
 
  def _extract_text(self, obj: Any) -> str:
-  """Expertly extracts text from various payload structures."""
+  """Extracts text from various payload structures."""
   if hasattr(obj, 'body'): return obj.body
   if hasattr(obj, 'text'): return obj.text
   if isinstance(obj, dict):

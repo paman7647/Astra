@@ -4,15 +4,13 @@
 # -----------------------------------------------------------
 
 """
-SyncEngine — Connection health monitor and sync orchestrator.
+SyncEngine — Connection health monitor and background sync manager.
 
-This module implements reliable sync detection, stall recovery,
-heartbeat polling, WA Web version tracking, event binding verification,
-and exponential backoff reconnection. It draws from stable patterns
-observed in whatsapp-web.js, wppconnect, Baileys, and nnew.
+This module implements connection health checks, stall detection,
+recovery logic, heartbeat polling, and version tracking.
 
-The SyncEngine runs as a background asyncio task alongside the
-main event loop. It does NOT touch pairing or QR login logic.
+The SyncEngine runs as a background asyncio task. It does not
+handle the authentication or pairing sequences.
 """
 
 import asyncio
@@ -39,15 +37,15 @@ logger = logging.getLogger("Astra.Sync")
 
 class SyncEngine:
  """
- Background sync orchestrator for the Astra client.
+ Background monitor for the Astra client.
 
  Responsibilities:
-  1. Heartbeat — periodically verifies the JS bridge is alive.
-  2. Stall detection — flags silent event gaps and triggers resync.
-  3. Fallback polling — fetches chat/message counts when live events stall.
-  4. WA Web version tracking — caches and monitors WhatsApp Web version.
-  5. Event binding verification — re-injects bridge if listeners are lost.
-  6. Exponential backoff reconnect — restarts engine with increasing delays.
+  1. Heartbeat — Verifies the JS bridge state.
+  2. Stall detection — Monitors event flow gaps.
+  3. Fallback polling — Updates counts if events stall.
+  4. Version tracking — Monitors WhatsApp Web version updates.
+  5. Event binding — Ensures listeners are attached.
+  6. Reconnection — Handles automatic restarts on failure.
  """
 
  def __init__(self, client: "Client"):
@@ -121,7 +119,7 @@ class SyncEngine:
  # ------------------------------------------------------------------
 
  async def _run_loop(self):
-  """Core background loop that orchestrates all sync checks."""
+  """Background loop for health and sync checks."""
   logger.debug("SyncEngine loop entered.")
 
   # Initial delay — let WA Web fully stabilize after auth

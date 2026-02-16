@@ -24,7 +24,7 @@ logger = logging.getLogger("Astra.Chat")
 
 class ChatMethods:
  """
- Expert-grade API for Chat and Messaging operations.
+ API for Chat and Messaging operations.
  """
 
  def __init__(self, client: 'Client'):

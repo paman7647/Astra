@@ -35,9 +35,9 @@ class EventSubscription:
 
 class EventDispatcher:
  """
- Orchestrates the flow of events across the application.
+ Routes incoming events across the application.
 
- Manages priority-based execution, command parsing, and event interception
+ Handles priority-based execution, command parsing, and event interception
  via middlewares.
  """
 
