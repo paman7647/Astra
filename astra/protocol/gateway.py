@@ -1,0 +1,238 @@
+# -----------------------------------------------------------
+# Astra - WhatsApp Client Framework
+# Licensed under the Apache License 2.0.
+# -----------------------------------------------------------
+
+"""
+The ProtocolBridge is the primary conduit for executing commands and
+receiving events from the WhatsApp Web browser context.
+"""
+
+import logging
+import asyncio
+from typing import Any, Optional, Callable, Awaitable, Dict
+from playwright.async_api import Page
+
+from ..errors import (
+ BridgeCallError, BridgeMethodNotFoundError,
+ MessageTimeoutError, RateLimitedError,
+ ConnectionLostError, PageUnresponsiveError,
+)
+
+from ..constants import BRIDGE_NAMESPACE, PROTOCOL_CALL_TIMEOUT
+from .js_engine import JS_ENGINE_SOURCE
+
+logger = logging.getLogger("Astra.Protocol")
+
+class ProtocolBridge:
+ """
+ Manages the two-way bridge between Python and JavaScript.
+
+ This class handles the injection of the Astra engine into the browser
+ and facilitates calling remote methods with automatic result normalization.
+ """
+
+ def __init__(self, page: Optional[Page] = None):
+  self._page = page
+  self._is_active = False
+  self._on_event: Optional[Callable[[str, Any], Awaitable[None]]] = None
+  self._connect_count: int = 0
+  self._progress_callbacks: Dict[str, Callable[[int, int], Any]] = {}
+
+ async def connect(self):
+  """
+  Initializes the bridge by injecting the core engine scripts.
+
+  This method uses persistent init scripts to ensure the bridge
+  survives page reloads and navigations.
+  """
+  logger.info("Connecting Protocol Bridge...")
+
+  # 1. Expose the event uplink (allows JS to call Python)
+  try:
+   # Direct exposure of the uplink function
+   async def astra_uplink_py(name, payload):
+    if name == "log":
+     msg = payload.get("msg", "") if isinstance(payload, dict) else str(payload)
+     # Suppress WA internal noise that isn't actionable
+     if "Requiring unknown module" in msg or "ErrorUtils" in msg or "fburl.com" in msg:
+      return
+     level = payload.get("level", "log") if isinstance(payload, dict) else "log"
+     if level == "error":
+      logger.debug(f"[WA] {msg[:200]}")
+     elif level == "warn":
+      logger.debug(f"[WA] {msg[:200]}")
+     else:
+      logger.debug(f"[WA] {msg[:120]}")
+     return
+    await self._process_event(name, payload)
+
+   await self._page.expose_function("astra_uplink", astra_uplink_py)
+   logger.info("Bridge uplink exposed successfully.")
+  except Exception as e:
+   logger.debug(f"Uplink Already Exposed: {e}")
+
+  # 2. Prepare the Bridge Proxy Snippet
+  # This snippet maps window.Astra methods to the bridge namespace
+  bridge_boot = f"""
+   window.{BRIDGE_NAMESPACE} = window.{BRIDGE_NAMESPACE} || {{}};
+   Object.assign(window.{BRIDGE_NAMESPACE}, {{
+    emit: (name, payload) => window.astra_uplink(name, payload),
+
+    call: async (method, payload, id) => {{
+     const engine = window.AstraEngine;
+     if (!engine || typeof engine[method] !== 'function') {{
+      console.error(`[Astra] Remote method [${{method}}] not found.`);
+      throw new Error(`Method not found: ${{method}}`);
+     }}
+     // Inject ID into payload if it's an object, otherwise wrap it
+     const params = (payload && typeof payload === 'object') ? {{ ...payload, _call_id: id }} : {{ value: payload, _call_id: id }};
+     return await engine[method](params);
+    }}
+   }});
+   console.log("[Astra] Bridge uplink established.");
+  """
+
+  # 3. Inject Scripts (Persistent + Immediate)
+  # add_init_script ensures the code runs on every navigation
+  await self._page.add_init_script(JS_ENGINE_SOURCE)
+  await self._page.add_init_script(bridge_boot)
+
+  # evaluate runs the code immediately for the current page
+  try:
+   await self._page.evaluate(JS_ENGINE_SOURCE)
+   await self._page.evaluate(bridge_boot)
+  except Exception as e:
+   logger.debug(f"Immediate injection skipped: {e}")
+
+  self._is_active = True
+  self._connect_count += 1
+
+ async def call(self, method: str, params: Any = None, timeout: float = PROTOCOL_CALL_TIMEOUT, progress: Optional[Callable] = None) -> Any:
+  """
+  Calls a remote JS method via the bridge with automatic recovery.
+
+  If the bridge is unreachable (page closed, bridge missing), it
+  attempts a single self-heal via ensure_bridge() before retrying.
+  """
+  if not self._is_active:
+   raise BridgeCallError("Bridge is not connected. Wait for client.start() to complete.", method=method)
+
+  call_id = f"call_{asyncio.get_event_loop().time()}"
+  if progress:
+   self._progress_callbacks[call_id] = progress
+
+  logger.debug(f"Calling remote method: {method} [ID: {call_id}]")
+
+  for attempt in range(2): # At most 1 retry after bridge recovery
+   try:
+    result = await self._page.evaluate(
+     f"(args) => window.{BRIDGE_NAMESPACE}.call(args.method, args.params, args.id)",
+     {"method": method, "params": params, "id": call_id}
+    )
+    return result
+
+   except Exception as e:
+    err_text = str(e).lower()
+    is_recoverable = any(k in err_text for k in [
+     "target closed", "target page", "not found",
+     "execution context", "frame was detached",
+    ])
+
+    if is_recoverable and attempt == 0:
+     logger.warning(f"[E6002] Bridge call '{method}' failed. Attempting self-heal...")
+     healed = await self.ensure_bridge()
+     if healed:
+      continue # Retry once
+
+    # Classify the error
+    if "method not found" in err_text:
+     raise BridgeMethodNotFoundError(method=method) from e
+    elif "timeout" in err_text or "sendmsgresultpromise timeout" in err_text:
+     raise MessageTimeoutError(f"Call to '{method}' timed out.") from e
+    elif "rate" in err_text or "too many" in err_text:
+     raise RateLimitedError(f"Rate limited during '{method}'.") from e
+    elif "target closed" in err_text or "page" in err_text:
+     raise ConnectionLostError(f"Browser lost during '{method}'.") from e
+    else:
+     raise BridgeCallError(f"'{method}' failed: {e}", cause=e, method=method) from e
+   finally:
+    self._progress_callbacks.pop(call_id, None)
+
+ async def ensure_bridge(self) -> bool:
+  """
+  Verifies the JS bridge is alive and re-injects it if needed.
+
+  Returns True if the bridge is healthy after this call.
+  """
+  try:
+   if not self._page or self._page.is_closed():
+    logger.warning("ensure_bridge: page is closed — cannot heal.")
+    return False
+
+   is_alive = await self._page.evaluate(
+    "() => typeof window.AstraEngine !== 'undefined'"
+   )
+   if is_alive:
+    return True
+
+   logger.info("Bridge not found — re-injecting...")
+   await self.connect()
+   logger.info("Bridge re-injected successfully.")
+   return True
+
+  except Exception as exc:
+   logger.error(f"ensure_bridge failed: {exc}")
+   return False
+
+ async def get_bridge_diagnostics(self) -> Dict[str, Any]:
+  """
+  Returns a structured health snapshot of the JS bridge.
+  """
+  try:
+   if not self._page or self._page.is_closed():
+    return {"alive": False, "reason": "page_closed"}
+
+   return await self._page.evaluate("""
+    () => {
+     try {
+      const store = window.Store || {};
+      return {
+       alive: !!window.AstraEngine,
+       storeReady: !!(store.Chat && store.Msg),
+       msgListener: !!(window.Astra && window.Astra._msgListenerAttached),
+       waVersion: (window.Debug && window.Debug.VERSION) || null,
+       socketState: (store.AppState && store.AppState.state) || 'unknown',
+       injections: window.AstraInjected || 0,
+      };
+     } catch (e) {
+      return { alive: false, error: e.message };
+     }
+    }
+   """)
+  except Exception as exc:
+   return {"alive": False, "error": str(exc)}
+
+ def set_event_handler(self, handler: Callable[[str, Any], Awaitable[None]]):
+  """Sets the sink for incoming browser events."""
+  self._on_event = handler
+
+ async def _process_event(self, name: str, payload: Any):
+  """Internal handler for messages arriving from the JS uplink."""
+  if name == "progress":
+   call_id = payload.get("id")
+   if call_id in self._progress_callbacks:
+    cb = self._progress_callbacks[call_id]
+    try:
+     cb(payload.get("current", 0), payload.get("total", 0))
+    except Exception as e:
+     logger.debug(f"Progress callback error: {e}")
+   return
+
+  if self._on_event:
+   logger.debug(f"[Gate] Forwarding event: {name}")
+   await self._on_event(name, payload)
+
+ @property
+ def is_connected(self) -> bool:
+  return self._is_active

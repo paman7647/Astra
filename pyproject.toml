@@ -1,0 +1,96 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# ==============================================================
+# Astra Engine — PyPI metadata
+# ==============================================================
+
+[project]
+name = "astra-engine"
+version = "0.0.1b1"
+description = "A high-performance WhatsApp Web automation library for Python."
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.9"
+authors = [
+ {name = "Aman Kumar Pandey"},
+]
+keywords = [
+ "whatsapp", "whatsapp-web", "automation", "bot",
+ "playwright", "async", "messaging", "chat",
+]
+classifiers = [
+ "Development Status :: 3 - Alpha",
+ "Intended Audience :: Developers",
+ "License :: OSI Approved :: Apache Software License",
+ "Operating System :: OS Independent",
+ "Programming Language :: Python :: 3",
+ "Programming Language :: Python :: 3.9",
+ "Programming Language :: Python :: 3.10",
+ "Programming Language :: Python :: 3.11",
+ "Programming Language :: Python :: 3.12",
+ "Programming Language :: Python :: 3.13",
+ "Topic :: Communications :: Chat",
+ "Topic :: Software Development :: Libraries :: Python Modules",
+ "Framework :: AsyncIO",
+ "Typing :: Typed",
+]
+
+dependencies = [
+ "playwright>=1.40.0",
+ "qrcode>=7.4",
+ "Pillow>=10.0",
+ "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = [
+ "pytest>=7.0",
+ "pytest-asyncio>=0.21",
+ "sphinx>=7.0",
+ "sphinx-rtd-theme>=2.0",
+ "ruff>=0.1",
+ "mypy>=1.5",
+ "build>=1.0",
+ "twine>=4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/paman7647/Astra"
+Documentation = "https://astra-engine.readthedocs.io"
+Source = "https://github.com/paman7647/Astra"
+Issues = "https://github.com/paman7647/Astra/issues"
+Changelog = "https://github.com/paman7647/Astra/blob/dev/CHANGELOG.md"
+
+# ==============================================================
+# Packaging configuration
+# ==============================================================
+
+[tool.setuptools.packages.find]
+include = ["astra*"]
+exclude = ["tests*", "docs*", "examples*", "corastra*", "nnew*", "x*", "wwaa*", "plugins*", "*.system_generated*"]
+
+[tool.setuptools.package-data]
+astra = ["py.typed"]
+
+# ==============================================================
+# Tool configuration
+# ==============================================================
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

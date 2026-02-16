@@ -1,0 +1,30 @@
+# Include in source distribution
+include LICENSE
+include README.md
+include ERROR_CODES.md
+include requirements.txt
+include pyproject.toml
+
+# Include documentation source and static assets
+recursive-include docs/source *.rst *.py *.png *.jpg *.jpeg *.svg
+recursive-include docs/source/_static *
+
+# Include examples
+recursive-include examples *.py
+
+# Include type stub marker
+include astra/py.typed
+
+# Exclude development / draft directories
+prune corastra
+prune nnew
+prune x
+prune wwaa
+prune docs/_build
+prune .astra_sessions
+prune plugins
+
+# Exclude caches
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude .DS_Store

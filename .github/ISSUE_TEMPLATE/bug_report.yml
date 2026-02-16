@@ -1,0 +1,51 @@
+name: Bug Report
+description: Create a report to help us improve Astra Engine
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Prerequisites
+      options:
+        - label: I strictly followed the [Installation Guide](https://astra-engine.readthedocs.io/en/latest/installation.html).
+          required: true
+        - label: I have searched for existing issues and checked the [FAQ](https://astra-engine.readthedocs.io/en/latest/faq.html).
+          required: true
+  - type: input
+    id: version
+    attributes:
+      label: Astra Engine Version
+      description: What version of astra-engine are you running? (e.g., 0.0.1b1)
+      placeholder: 0.0.1b1
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of what the bug is.
+      placeholder: I expected X to happen, but Y happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction Steps
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Initialize client with...
+        2. Run command...
+        3. See error...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Logs
+      description: Please paste the full error traceback here.
+      render: shell

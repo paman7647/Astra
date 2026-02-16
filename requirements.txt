@@ -1,0 +1,4 @@
+playwright
+qrcode
+Pillow
+requests
