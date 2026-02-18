@@ -94,7 +94,10 @@ class Client:
 
   # 4. Authentication
   pairing_env = os.getenv("ASTRA_PHONE_PAIRING") or os.getenv("PHONEPAIRING")
-  self.use_pairing = (pairing_env.lower() == "true") if pairing_env else False
+  if not self.phone:
+   raise ValueError("Configuration Error: 'phone' number is now mandatory for all login methods (including QR) for verification purposes. Please set PHONE_NUMBER env var or pass phone='...' to Client().")
+
+  # Pairing mode is optional, but phone number is now required
   self.authenticator = Authenticator(self.browser, self.phone, use_pairing=self.use_pairing)
 
   # 4b. Method Managers
@@ -109,6 +112,7 @@ class Client:
   # 5. Register Class-Level Handlers (Plugins)
   for event, func, criteria in self._class_handlers:
    self.on(event, criteria=criteria)(func)
+  self.startup_at: float = time.time()
   self._class_handlers.clear()
 
   # Internal Cache
@@ -207,6 +211,7 @@ class Client:
    if self._show_banner:
     await self._print_session_info()
 
+   self.startup_at = time.time()
    # Notify listeners
    self.events.emit("ready")
 

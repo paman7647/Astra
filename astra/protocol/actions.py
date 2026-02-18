@@ -34,7 +34,7 @@ class EngineAPI:
   """Sends a text message to a chat."""
   opts = (options or {}).copy()
   if "waitForSend" not in opts:
-   opts["waitForSend"] = True
+   opts["waitForSend"] = False
 
   data = await self._bridge.call("sendMessage", {
    "to": chat_id,

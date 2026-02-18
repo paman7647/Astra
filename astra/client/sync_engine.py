@@ -134,9 +134,9 @@ class SyncEngine:
      await self._heartbeat()
      self._last_heartbeat_ts = now
 
-    # 2. Stall detection
-    if self.seconds_since_last_event > SYNC_STALL_THRESHOLD:
-     await self._handle_stall()
+    # 2. Stall detection (Disabled per user request)
+    # if self.seconds_since_last_event > SYNC_STALL_THRESHOLD:
+    #  await self._handle_stall()
 
     # 3. Fallback poll (only if heartbeat passes)
     if (now - self._last_poll_ts) >= SYNC_POLL_INTERVAL:

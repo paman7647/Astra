@@ -140,7 +140,7 @@ class ProtocolBridge:
     ])
 
     if is_recoverable and attempt == 0:
-     logger.warning(f"[E6002] Bridge call '{method}' failed. Attempting self-heal...")
+     # Silent self-heal
      healed = await self.ensure_bridge()
      if healed:
       continue # Retry once

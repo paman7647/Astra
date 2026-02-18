@@ -856,6 +856,7 @@ window.Astra = window.Astra || {};
   s.chat_id = serializeWid(msg.id ? msg.id.remote : (msg.from || msg.to)) || s.chat_id;
   s.chatId = s.chat_id;
   s.timestamp = msg.t || msg.timestamp || s.t || s.timestamp || Math.floor(Date.now() / 1000);
+  s.isEditable = !!(msg.canEdit ? (typeof msg.canEdit === 'function' ? msg.canEdit() : msg.canEdit) : msg.isEditable);
 
   // Aggressive Quoted Identification (Industry Standard Pattern)
   let qid = null;
@@ -909,7 +910,7 @@ window.Astra = window.Astra || {};
   if (!chat) return null;
   return {
    id: chat.id._serialized || chat.id,
-   name: chat.name || chat.formattedTitle || chat.pushname || (chat.id ? chat.id.user : 'Unknown'),
+   name: chat.name || chat.formattedTitle || chat.pushname || (chat.contact ? (chat.contact.name || chat.contact.pushname) : null) || (chat.id ? chat.id.user : 'Unknown'),
    isGroup: typeof chat.isGroup === 'function' ? chat.isGroup() : !!chat.isGroup,
    unreadCount: chat.unreadCount || 0,
    timestamp: chat.t || 0,

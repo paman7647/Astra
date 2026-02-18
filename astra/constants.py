@@ -35,7 +35,7 @@ RECONNECT_JITTER_MAX = 5.0 # Max random jitter added to backoff
 
 # --- Sync Engine Configuration ---
 SYNC_HEARTBEAT_INTERVAL = 30.0 # Seconds between bridge health checks
-SYNC_STALL_THRESHOLD = 90.0 # Seconds of silence before declaring stall
+SYNC_STALL_THRESHOLD = 3600.0 # Seconds of silence before declaring stall
 SYNC_POLL_INTERVAL = 15.0  # Seconds between fallback data polls
 
 # --- WhatsApp Web DOM Selectors ---

@@ -7,17 +7,20 @@ CHAT_CODE = r"""
 (function() {
  window.Astra = window.Astra || {};
 
- window.Astra.sendText = async (to, text, options = {}) => {
+ window.Astra.ensureWid = (value) => {
   const Store = window.Astra.initializeEngine();
+  if (!value) return null;
+  if (typeof value === 'string') return Store.WidFactory.createWid(value);
+  if (typeof value === 'object') {
+   const id = value._serialized || value.serialized || value.id;
+   if (id && (typeof id === 'string' || id._serialized)) return Store.WidFactory.createWid(id._serialized || id);
+  }
+  return value;
+ };
 
-  const ensureWid = (value) => {
-   if (!value) return null;
-   if (typeof value === 'string') return Store.WidFactory.createWid(value);
-   if (value._serialized) return Store.WidFactory.createWid(value._serialized);
-   return value;
-  };
-
-  const chatWid = ensureWid(to);
+  window.Astra.sendText = async (to, text, options = {}) => {
+  const Store = window.Astra.initializeEngine();
+  const chatWid = window.Astra.ensureWid(to);
   if (!Store.WidFactory && !Store.AddressFactory) throw new Error('Astra: WidFactory/AddressFactory unavailable');
 
   const chat = await window.Astra.getChat(chatWid);
@@ -30,14 +33,11 @@ CHAT_CODE = r"""
   const from = chatWid.isLid() ? (lidUser || meUser) : (meUser || lidUser);
   console.log(`[Astra] sendText target=${chatWid._serialized} from=${from ? from._serialized : 'NULL'}`);
 
-  // Generate id with fallbacks to support different WA builds
   let newId;
   if (Store.MsgKey && Store.MsgKey.newId) {
    newId = await Store.MsgKey.newId();
   } else if (Store.MessageIdentity && Store.MessageIdentity.newId) {
    newId = await Store.MessageIdentity.newId();
-  } else if (Store.Msg && Store.Msg.newId) {
-   newId = await Store.Msg.newId();
   } else {
    newId = `${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
   }
@@ -52,7 +52,6 @@ CHAT_CODE = r"""
     newMsgKey = { from, to: chatWid, id: newId, _serialized: `${from._serialized}_${chatWid._serialized}_${newId}` };
    }
   } catch (e) {
-   console.error('[Astra] MsgKey construction failed:', e);
    newMsgKey = { _serialized: `out_${chatWid._serialized}_${newId}` };
   }
 
@@ -64,13 +63,11 @@ CHAT_CODE = r"""
    try {
     let quotedMessage = Store.Msg.get(quotedId);
     if (quotedMessage) {
-     const canReply = Store.ReplyUtils ? Store.ReplyUtils.canReplyMsg(quotedMessage) : quotedMessage.canReply();
+     const canReply = Store.ReplyUtils ? Store.ReplyUtils.canReplyMsg(quotedMessage) : (quotedMessage.canReply ? quotedMessage.canReply() : true);
      if (canReply) {
       quotedMsgOptions = quotedMessage.msgContextInfo(chat);
       console.log(`[Astra] Quoted message attached: ${quotedId}`);
      }
-    } else {
-     console.log(`[Astra] Quoted message not found in memory: ${quotedId}`);
     }
    } catch (e) {
     console.warn('[Astra] Quoted attachment failed:', e);
@@ -93,48 +90,31 @@ CHAT_CODE = r"""
    ...quotedMsgOptions
   };
 
-  // Use available send API with fallbacks
-  let msgPromise, sendMsgResultPromise;
   const msgSender = Store.SendMessage || Store.MessageSender || window.Astra.mR.findModule(m => m && m.addAndSendMsgToChat);
-
-  if (msgSender && typeof msgSender.addAndSendMsgToChat === 'function') {
-   [msgPromise, sendMsgResultPromise] = msgSender.addAndSendMsgToChat(chat, message);
-  } else if (msgSender && typeof msgSender.send === 'function') {
-   msgPromise = Promise.resolve(msgSender.send(chat, message));
-   sendMsgResultPromise = msgPromise;
-  } else {
-   console.error('[Astra] SendMessage modules:', Store.SendMessage, Store.MessageSender);
-   throw new Error('Astra: No SendMessage implementation available to send text');
-  }
+  if (!msgSender) throw new Error('Astra: No SendMessage modules found');
 
   try {
-   // Wait for internal message object attachment
-   await Promise.race([
-    msgPromise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error('Astra: msgPromise timeout')), 5000))
-   ]);
-
-   // Optional: Wait for actual server acknowledgement if requested
-   if (options.waitForSend && sendMsgResultPromise) {
+   const res = msgSender.addAndSendMsgToChat ? msgSender.addAndSendMsgToChat(chat, message) : msgSender.send(chat, message);
+   
+   if (options.waitForSend) {
+    const result = Array.isArray(res) ? res[1] : res;
     await Promise.race([
-     sendMsgResultPromise,
-     new Promise((_, reject) => setTimeout(() => reject(new Error('Astra: sendMsgResultPromise timeout')), 15000))
+     result,
+     new Promise((_, reject) => setTimeout(() => reject(new Error('Astra: send acknowledgement timeout')), 30000))
     ]);
    }
   } catch (e) {
-   console.error('[Astra] sendText promise failure:', e.message);
-   // Non-fatal if msg was already added to the collection
+   console.error('[Astra] sendText failure:', e.message);
   }
 
   const resultMsg = (Store.Msg && Store.Msg.get) ? (Store.Msg.get(newMsgKey._serialized) || message) : message;
   return window.Astra.serializeMsg(resultMsg);
  };
 
- window.Astra.getChatById = async (chatId) => {
+  window.Astra.getChatById = async (chatId) => {
   try {
    const Store = window.Astra.initializeEngine();
-   const id = (typeof chatId === 'object' && chatId) ? (chatId._serialized || chatId.id || chatId) : chatId;
-   const chatWid = Store.WidFactory.createWid(id);
+   const chatWid = window.Astra.ensureWid(chatId);
 
    let chat = Store.Chat.get(chatWid);
    if (!chat && Store.FindOrCreateChat && Store.FindOrCreateChat.findOrCreateLatestChat) {
@@ -154,8 +134,7 @@ CHAT_CODE = r"""
  window.Astra.getContactById = async (contactId) => {
   try {
    const Store = window.Astra.initializeEngine();
-   const id = (typeof contactId === 'object' && contactId) ? (contactId._serialized || contactId.id || contactId) : contactId;
-   const contactWid = Store.WidFactory.createWid(id);
+   const contactWid = window.Astra.ensureWid(contactId);
 
    let contact = Store.Contact.get(contactWid);
    if (!contact && Store.Contact.find) {
@@ -239,15 +218,26 @@ CHAT_CODE = r"""
    const msg = (typeof msgId === 'object') ? msgId : (Store.Msg.get(msgId) || (await Store.Msg.getMessagesById([msgId]))?.messages?.[0]);
    if (!msg) throw new Error("Message not found: " + msgId);
 
+   // Pre-flight check: WhatsApp's internal editability rules
+   const isEditable = msg.canEdit ? (typeof msg.canEdit === 'function' ? msg.canEdit() : msg.canEdit) : true;
+   if (!isEditable) throw new Error("Message is not editable (too old, already deleted, or not sent by you)");
+
    console.log(`[Astra] editMessage id=${msg.id._serialized} fromMe=${msg.id.fromMe}`);
 
-   if (Store.EditMessage && Store.EditMessage.sendMessageEdit && typeof Store.EditMessage.sendMessageEdit === 'function') {
+   // Try 1: Standard Store module
+   if (Store.EditMessage && Store.EditMessage.sendMessageEdit) {
     await Store.EditMessage.sendMessageEdit(msg, content, options);
     console.log('[Astra] editMessage: success via Store.EditMessage');
     return window.Astra.serializeMsg(msg);
    }
 
-   // Fallback: Manual module discovery
+   // Try 2: Direct model edit (sometimes available in newer builds)
+   if (typeof msg.sendMessageEdit === 'function') {
+    await msg.sendMessageEdit(content, options);
+    return window.Astra.serializeMsg(msg);
+   }
+
+   // Try 3: Discovery Fallback
    const editMod = window.Astra.mR.findModule(m => m && typeof m.sendMessageEdit === 'function') ||
        window.Astra.mR.findModule(m => m && typeof m.sendEditMessage === 'function');
 
@@ -258,9 +248,9 @@ CHAT_CODE = r"""
     return window.Astra.serializeMsg(msg);
    }
 
-   throw new Error("No suitable edit implementation succeeded");
+   throw new Error("No suitable edit implementation found in this WhatsApp version");
   } catch (e) {
-   console.error('[Astra] editMessage FATAL:', e.message);
+   console.error('[Astra] editMessage error:', e.message);
    throw e;
   }
  };

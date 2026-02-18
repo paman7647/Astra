@@ -38,6 +38,7 @@ class Message:
  is_status: bool = False
 
  ack: MessageAck = MessageAck.SENT
+ is_editable: bool = False
 
  # Enrichment
  quoted_message_id: Optional[str] = None
@@ -130,6 +131,7 @@ class Message:
    is_reaction=data.get("isReaction", False),
    is_status=data.get("isStatus", False),
    ack=MessageAck(data.get("ack") if data.get("ack") is not None else 0),
+   is_editable=data.get("isEditable", False),
    quoted_message_id=quoted_id,
    quoted_participant=JID.parse(quoted_participant) if quoted_participant else None,
    has_quoted_msg=bool(quoted_id or data.get("hasQuotedMsg")),

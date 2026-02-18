@@ -74,9 +74,10 @@ ACCOUNT_CODE = r"""
    let pushname = (Store.Conn && Store.Conn.pushname) ||
        (Store.SessionInfo && Store.SessionInfo.pushname) ||
        (u && u.getPushname && u.getPushname()) ||
+       (Store.Contact && serializedId && Store.Contact.get(serializedId)?.pushname) ||
        'User';
 
-   return { id: serializedId, pushname: pushname, isMyContact: true };
+   return { id: serializedId, name: pushname, pushname: pushname, isMyContact: true };
   } catch (e) {
    console.warn('[Astra] Identity resolution failed:', e.message);
    return null;

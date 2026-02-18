@@ -126,6 +126,11 @@ class EventDispatcher:
   if (is_msg or is_reaction) and isinstance(payload, dict):
    payload = DataTransformer.to_message(payload, self._client)
 
+  # 1b. Filter stale events (older than startup)
+  if hasattr(payload, 'timestamp') and payload.timestamp < self._client.startup_at:
+   logger.debug(f"[{correlation_id}] Ignoring stale event '{name}' (ts: {payload.timestamp}, startup: {round(self._client.startup_at)})")
+   return
+
   # 2. Contextualize (for Message/Reaction events)
   prefix, cmd, args = (None, None, [])
   if is_msg:
