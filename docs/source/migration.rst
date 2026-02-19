@@ -5,6 +5,24 @@ Migration Guide
 
 This page helps you migrate between Astra versions when breaking changes occur.
 
+From v0.0.1b3 to v0.0.1b4
+---------------------------
+
+**Message Attributes**
+
+The ``has_media`` property has been deprecated and replaced with ``is_media`` for 
+better consistency across models.
+
+.. code-block:: diff
+
+ - if message.has_media:
+ + if message.is_media:
+
+**Quoted Media**
+
+The ``quoted`` property now accurately detects media types (stickers, images, video) 
+even when messages are received as skeletal payloads.
+
 From pre-release to v0.0.1
 ---------------------------
 
@@ -55,7 +73,7 @@ The recommended pattern is now ``async with``:
 General migration tips
 ----------------------
 
-1. Check the `CHANGELOG <https://github.com/paman7647/Astra/blob/main/CHANGELOG.md>`_
+1. Check the `CHANGELOG <https://github.com/paman7647/Astra/blob/dev/CHANGELOG.md>`_
  for the full list of changes.
 2. Run ``python -c "from astra import Client"`` to check basic imports.
 3. Search your code for deprecated patterns listed above.

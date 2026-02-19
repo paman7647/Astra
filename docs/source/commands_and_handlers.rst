@@ -82,6 +82,9 @@ Every handler receives a ``Message`` object with these useful attributes:
  * - ``msg.is_group``
   - ``bool``
   - Whether this is a group message
+ * - ``msg.is_media``
+  - ``bool``
+  - Whether the message contains media
  * - ``msg.quoted``
   - ``Message | None``
   - The message being replied to, if any

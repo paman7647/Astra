@@ -134,8 +134,8 @@ Astra supports environment variables for zero-config starting:
 
 - ``PHONE_NUMBER``: Set this to your phone number (international format) to
   automatically trigger pairing code authentication without modifying your script.
-- ``PHONEPAIRING``: Set to ``True`` to force the "Link with phone number" UI
-  even if no phone number is provided in the script.
+- ``ASTRA_PHONE_PAIRING``: Set to ``True`` to force the "Link with phone number" UI
+  even if no phone number is provided in the script (aliased as ``PHONEPAIRING``).
 
 Example:
 

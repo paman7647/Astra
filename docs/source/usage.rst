@@ -100,6 +100,11 @@ Chat operations
  sent = await client.chat.send_message(jid, "Helo")
  await client.chat.edit_message(sent.id, "Hello")
 
+.. note::
+  As of v0.0.1b4, Astra includes a mandatory 0.5s stability delay for all message editing 
+  operations to prevent WhatsApp rate limiting. This delay is handled automatically 
+  by the library.
+
 **Mark a chat as read:**
 
 .. code-block:: python
@@ -200,6 +205,33 @@ Account operations
 
  await client.account.set_last_seen("contacts")  # contacts, all, none
  await client.account.set_read_receipts(False)
+
+**Message Attributes**
+
+The ``Message`` object contains several properties for quick content inspection:
+
+.. list-table::
+ :header-rows: 1
+
+ * - Property
+  - Description
+ * - ``is_media``
+  - True if the message contains an image, video, sticker, etc.
+ * - ``is_group``
+  - True if the message was sent in a group chat.
+ * - ``is_service``
+  - True for system messages (e.g., "Aman added you").
+ * - ``quoted``
+  - The quoted message object (or None).
+
+**Checking for media:**
+
+.. code-block:: python
+
+ @client.on_message(Filters.all)
+ async def check_media(msg):
+  if msg.is_media:
+   print(f"Message {msg.id} contains media of type: {msg.type}")
 
 Media operations
 ----------------

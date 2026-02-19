@@ -80,3 +80,7 @@ npm-debug.log*
 *.log
 *.pid
 *.seed
+test.py
+blog_post.md
+plugins/
+*.system_generated*

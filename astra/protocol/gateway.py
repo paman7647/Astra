@@ -236,3 +236,67 @@ class ProtocolBridge:
  @property
  def is_connected(self) -> bool:
   return self._is_active
+
+ async def execute(self, code: str) -> Any:
+  """
+  Executes raw JavaScript in the page context.
+  This is used for bootstrapping and complex low-level operations.
+  """
+  if not self._page or self._page.is_closed():
+   raise BridgeCallError("Page reached an unreachable state during execute.", method="execute")
+  
+  try:
+   return await self._page.evaluate(code)
+  except Exception as e:
+   logger.error(f"JavaScript execution failed: {e}")
+   raise BridgeCallError(f"Execution failed: {e}", cause=e, method="execute") from e
+
+ async def edit_message_native(self, message_id: str, text: str) -> bool:
+  """
+  High-speed native Playwright fallback for editing messages.
+  """
+  if not self._page or self._page.is_closed():
+   return False
+
+  try:
+   # 1. Faster selector
+   msg_locator = self._page.locator(f'div[data-id="{message_id}"]')
+   if await msg_locator.count() == 0:
+    await self._page.mouse.wheel(0, 2000)
+    await asyncio.sleep(0.5)
+    if await msg_locator.count() == 0: return False
+
+   # 2. Optimized hover and menu trigger
+   await msg_locator.hover()
+   
+   # Try multiple menu icons for speed
+   menu_btn = msg_locator.locator('span[data-icon="down-context"], [aria-label="Context menu"]').first
+   if await menu_btn.count() > 0:
+    await menu_btn.click()
+   else:
+    await msg_locator.click(button="right")
+   
+   # 3. Find Edit button with tighter wait
+   edit_btn = self._page.locator('div[role="button"]:has-text("Edit"), [aria-label*="Edit"]').first
+   await edit_btn.wait_for(state="visible", timeout=1500)
+   await edit_btn.click()
+
+   # 4. Instant type and Enter
+   input_box = self._page.locator('div[contenteditable="true"]').first
+   await input_box.focus()
+   
+   # Select all + Backspace
+   await self._page.keyboard.down("Meta")
+   await self._page.keyboard.press("A")
+   await self._page.keyboard.up("Meta")
+   await self._page.keyboard.press("Backspace")
+   
+   await self._page.keyboard.type(text)
+   await self._page.keyboard.press("Enter")
+   
+   return True
+
+  except Exception as e:
+   logger.error(f"High-speed native edit failed: {e}")
+   return False
+

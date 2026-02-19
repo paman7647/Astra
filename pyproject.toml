@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "astra-engine"
-version = "0.0.1b3"
+version = "0.0.2b4"
 description = "A high-performance WhatsApp Web automation library for Python."
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -38,7 +38,7 @@ classifiers = [
 ]
 
 dependencies = [
- "playwright>=1.40.0",
+ "playwright>=1.42.0",
  "qrcode>=7.4",
  "Pillow>=10.0",
  "requests>=2.31",
@@ -69,7 +69,12 @@ Changelog = "https://github.com/paman7647/Astra/blob/dev/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 include = ["astra*"]
-exclude = ["tests*", "docs*", "examples*", "corastra*", "nnew*", "x*", "wwaa*", "plugins*", "*.system_generated*"]
+exclude = [
+ "tests*", "docs*", "examples*", "corastra*", "nnew*", "x*", "wwaa*",
+ "plugins*", "*.system_generated*", "astrabot.egg-info", "build", "dist",
+ ".github", ".vscode", ".idea", ".git*", ".pytest_cache", ".mypy_cache",
+ "venv", "env", "__pycache__"
+]
 
 [tool.setuptools.package-data]
 astra = ["py.typed"]

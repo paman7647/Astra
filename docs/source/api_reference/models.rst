@@ -22,8 +22,10 @@ and documented via autodoc for quick reference.
 Important fields
 ----------------
 
-- ``Message.body`` / ``Message.text`` — message text
-- ``Message.id`` / ``Message.chat_id`` — identifiers
+- ``Message.body`` / ``Message.text`` — message content
+- ``Message.id`` / ``Message.chat_id`` — unique identifiers
+- ``Message.is_media`` / ``Message.is_group`` — boolean status flags
+- ``Message.quoted`` — access to the replied-to message object
 - ``Chat.title`` / ``Chat.is_group`` — thread metadata
 
 Example: converting a payload

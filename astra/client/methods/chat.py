@@ -4,10 +4,14 @@
 # -----------------------------------------------------------
 
 """
-This module provides the ChatMethods mixin for the Astra Client.
+Chat and messaging interface for the Astra Client.
+
+This module provides the ChatMethods mixin, consolidating all high-level 
+chat operations like sending messages, polls, and media.
 """
 
 import logging
+import time
 from typing import Optional, List, Any, Dict, TYPE_CHECKING
 from ...models import Message, Chat
 from ...errors import (
@@ -24,7 +28,7 @@ logger = logging.getLogger("Astra.Chat")
 
 class ChatMethods:
  """
- API for Chat and Messaging operations.
+ Interface for high-level chat and messaging operations.
  """
 
  def __init__(self, client: 'Client'):
@@ -90,13 +94,9 @@ class ChatMethods:
    raise ReactionError(f"Failed to react to {message_id}: {e}") from e
 
  async def edit_message(self, message_id: str, text: str) -> bool:
-  """
-  Edits a message.
-
-  Raises:
-   MessageEditError: [E3006] If the edit failed.
-  """
   try:
+   # Mandatory 0.5s delay to keep message edits stable and avoid rate limits
+   time.sleep(0.5)
    return await self._client.api.edit_message(message_id, text)
   except Exception as e:
    raise MessageEditError(f"Failed to edit {message_id}: {e}") from e
@@ -124,6 +124,16 @@ class ChatMethods:
    return await self._client.bridge.call("pinChat", {"chatId": chat_id, "pin": pin})
   except Exception as e:
    raise ChatOperationError(f"Failed to {'pin' if pin else 'unpin'} {chat_id}: {e}", code=ErrorCode.MSG_CHAT_PIN) from e
+
+ async def send_state(self, chat_id: str, state: str) -> bool:
+  """
+  Sets the chat state (typing, recording, paused).
+  """
+  try:
+   return await self._client.bridge.call("sendChatState", {"chatId": chat_id, "state": state})
+  except Exception as e:
+   # Log and suppress
+   return False
 
  async def mute(self, chat_id: str, duration: int = 28800) -> bool:
   """
@@ -170,14 +180,30 @@ class ChatMethods:
   except Exception as e:
    raise SyncError(f"Failed to sync history for {chat_id}: {e}") from e
 
- async def send_media(self, chat_id: str, media: str, mimetype: str, filename: Optional[str] = None, caption: Optional[str] = None) -> Message:
+ async def send_media(
+  self,
+  chat_id: str,
+  media: Union[str, Dict[str, Any]],
+  mimetype: Optional[str] = None,
+  filename: Optional[str] = None,
+  caption: Optional[str] = None,
+  **kwargs
+ ) -> Message:
   """
-  Sends a media file.
+  Sends a media file. Supports base64 string or a dict package.
+  """
+  if isinstance(media, dict):
+   mimetype = media.get("mimetype", mimetype)
+   filename = media.get("filename", filename)
+   data = media.get("data", "")
+  else:
+   data = media
 
-  Raises:
-   MediaUploadError: [E3004] If media upload failed.
-  """
   try:
-   return await self._client.api.send_media(chat_id, media, mimetype, filename=filename, caption=caption)
+   return await self._client.api.send_media(chat_id, data, mimetype, filename=filename, caption=caption)
   except Exception as e:
    raise MediaUploadError(f"Failed to send media to {chat_id}: {e}", cause=e) from e
+
+ async def set_chat_state(self, chat_id: str, state: str) -> bool:
+  """Sets the chat state (typing, recording, clear)."""
+  return await self._client.api.send_chat_state(chat_id, state)

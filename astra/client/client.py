@@ -97,6 +97,7 @@ class Client:
   if not self.phone:
    raise ValueError("Configuration Error: 'phone' number is now mandatory for all login methods (including QR) for verification purposes. Please set PHONE_NUMBER env var or pass phone='...' to Client().")
 
+  self.use_pairing = (pairing_env.lower() == "true") if pairing_env else False
   # Pairing mode is optional, but phone number is now required
   self.authenticator = Authenticator(self.browser, self.phone, use_pairing=self.use_pairing)
 
@@ -105,8 +106,6 @@ class Client:
   self.group = GroupMethods(self)
   self.media = MediaMethods(self)
   self.account = AccountMethods(self)
-
-  # Backward compatibility alias
   self.privacy = self.account
 
   # 5. Register Class-Level Handlers (Plugins)
@@ -145,6 +144,19 @@ class Client:
  @property
  def is_connected(self) -> bool:
   return self.status.is_ready()
+
+ @property
+ def newfn(self) -> 'ChatMethods':
+  """Compatibility alias for the functional core (now directed to ChatMethods)."""
+  return self.chat
+
+ async def send_message(self, *args, **kwargs) -> Message:
+  """Shortcut for client.chat.send_message."""
+  return await self.chat.send_message(*args, **kwargs)
+
+ async def send_media(self, *args, **kwargs) -> Message:
+  """Shortcut for client.chat.send_media."""
+  return await self.chat.send_media(*args, **kwargs)
 
  # --- Core Operations ---
 
@@ -467,7 +479,12 @@ class Client:
 
     # Register discovered handlers to THIS instance
     for event, func, criteria in Client._class_handlers:
-     self.on(event, criteria=criteria)(func)
+     # Wrap handler to inject 'client' (self) as first argument
+     # This supports the standard (client, message) signature
+     async def wrapper(event_payload, _f=func):
+      return await _f(self, event_payload)
+     
+     self.on(event, criteria=criteria)(wrapper)
     Client._class_handlers.clear()
 
    except Exception as e:

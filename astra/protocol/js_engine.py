@@ -61,6 +61,8 @@ JS_ENGINE_SOURCE = "\n".join([
  " ",
  " // Expose the clean API surface to the Protocol Bridge",
  " window.AstraEngine = {",
+ " // Core Utilities",
+ " sendChatState: async (p) => pack(await A.sendChatState(p.chatId, p.state)),",
  " getMe: async () => pack(await A.getIdentity()),",
  " getChats: async () => pack(await A.getChatList()),",
  " getContacts: async () => pack(await A.getContacts()),",
@@ -132,7 +134,11 @@ JS_ENGINE_SOURCE = "\n".join([
  " // Uplink for event propagation",
  " window.py_onMessage = (m) => A.emit && A.emit('msg', m);",
  " ",
+ " if (!window.AstraEngine) {",
+ " console.warn('[Astra] High-Level Engine init failed - window.Astra missing?');",
+ " } else {",
  " console.log('[Astra] High-Level Engine V24 Ready.');",
+ " }",
  "})();",
  "})();"
 ])

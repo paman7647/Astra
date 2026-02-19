@@ -4,22 +4,25 @@
 # -----------------------------------------------------------
 
 """
-The Message model is the core data structure in Astra.
-It represents every interaction on the WhatsApp platform.
+Primary data model for WhatsApp messages. 
+
+This module defines the Message class, which encapsulates all message data 
+and provides a clean interface for interaction and content extraction.
 """
 
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
+import time
 from .user import JID
 from .enums import MessageType, MessageAck
 
 @dataclass(kw_only=True)
 class Message:
  """
- Represents a full record of a WhatsApp message.
+ Represents a complete WhatsApp message record.
 
- This class encapsulates everything about a message, including its content,
- sender details, status flags, and interaction methods.
+ This class manages message metadata, sender identity, status flags, 
+ and provides methods for responding to or modifying messages.
  """
  _client: Any = field(repr=False, compare=False, default=None)
 
@@ -43,6 +46,7 @@ class Message:
  # Enrichment
  quoted_message_id: Optional[str] = None
  quoted_participant: Optional[JID] = None
+ quoted_type: Optional[MessageType] = None
  has_quoted_msg: bool = False
  mentioned_jids: List[JID] = field(default_factory=list)
 
@@ -63,7 +67,12 @@ class Message:
   if self.quoted_message_id:
    # We don't have the full object here usually unless the bridge sends it.
    # But we can return a skeleton.
-   return Message(_client=self._client, id=self.quoted_message_id, chat_id=self.chat_id)
+   return Message(
+    _client=self._client,
+    id=self.quoted_message_id,
+    chat_id=self.chat_id,
+    type=self.quoted_type or MessageType.TEXT
+   )
   return None
 
  @property
@@ -116,6 +125,16 @@ class Message:
   if isinstance(quoted_participant, dict):
    quoted_participant = quoted_participant.get("_serialized")
 
+  # Extract quoted type if available
+  quoted_type = None
+  quoted_payload = data.get("quotedMsg")
+  if quoted_payload and isinstance(quoted_payload, dict):
+      quoted_type = MessageType(quoted_payload.get("type", "chat"))
+  elif "_data" in data and isinstance(data["_data"], dict):
+      q = data["_data"].get("quotedMsg")
+      if q:
+          quoted_type = MessageType(q.get("type", "chat"))
+
   return cls(
    _client=client,
    id=serialized_id,
@@ -134,6 +153,7 @@ class Message:
    is_editable=data.get("isEditable", False),
    quoted_message_id=quoted_id,
    quoted_participant=JID.parse(quoted_participant) if quoted_participant else None,
+   quoted_type=quoted_type,
    has_quoted_msg=bool(quoted_id or data.get("hasQuotedMsg")),
    mentioned_jids=[JID.parse(m) if isinstance(m, str) else JID.parse(m.get("_serialized", ""))
        for m in data.get("mentionedJidList", [])]
@@ -169,7 +189,10 @@ class Message:
   """
   if not self._client:
    raise RuntimeError("Message object is not bound to a client.")
+  # Give it a small sleep so we don't hit rate limits when spamming edits
+  time.sleep(0.5)
   return await self._client.chat.edit_message(self.id, text)
+
 
  async def delete(self, for_everyone: bool = True) -> bool:
   """

@@ -8,7 +8,7 @@
 
  [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue?style=for-the-badge&logo=python)](https://www.python.org/)
  [![License](https://img.shields.io/badge/license-Apache%202.0-green?style=for-the-badge)](LICENSE)
- [![Code Style](https://img.shields.io/badge/code%20style-python-3776ab.svg?style=for-the-badge)](https://www.python.org/)
+ [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg?style=for-the-badge)](https://github.com/astral-sh/ruff)
  [![Documentation](https://img.shields.io/badge/docs-read%20the%20docs-8ca1af?style=for-the-badge)](https://astra-engine.readthedocs.io/)
 
 </div>

@@ -12,6 +12,7 @@ import logging
 from typing import Optional, List, Any, Dict
 from .gateway import ProtocolBridge
 from .serializers import DataTransformer
+from ..errors import MessageEditError
 from ..models import Message, Chat, User
 
 logger = logging.getLogger("Astra.Engine")
@@ -65,10 +66,13 @@ class EngineAPI:
 
  async def edit_message(self, message_id: str, text: str) -> bool:
   """Edits a previously sent message."""
-  return await self._bridge.call("editMessage", {
+  res = await self._bridge.call("editMessage", {
    "msgId": message_id,
    "text": text
   })
+  if isinstance(res, dict) and "error" in res:
+   raise MessageEditError(res["error"])
+  return True
 
  async def fetch_messages(self, chat_id: str, options: Optional[Dict[str, Any]] = None) -> List[Message]:
   """Loads earlier messages for a chat."""
@@ -202,3 +206,9 @@ class EngineAPI:
  async def logout(self) -> bool:
   """Terminated the current session and logs out."""
   return await self._bridge.call("logout")
+
+ async def send_chat_state(self, chat_id: str, state: str) -> bool:
+  """
+  Sets the chat state (typing, recording, clear).
+  """
+  return await self._bridge.call("sendChatState", {"chatId": chat_id, "state": state})

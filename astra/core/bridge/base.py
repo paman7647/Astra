@@ -943,4 +943,21 @@ window.Astra = window.Astra || {};
  };
  setTimeout(_tryInit, 2000);
 })();
+
+    window.Astra.getMe = function() {
+        const Store = window.Astra.initializeEngine();
+        if (Store.User && Store.User.getMeUser) {
+            return Store.User.getMeUser();
+        }
+        // Fallback for different WA versions
+        if (Store.User && Store.User.getMe) {
+            return Store.User.getMe();
+        }
+        // Last resort: check Conn
+        if (window.AuthStore.Conn) {
+             return window.AuthStore.Conn.wid;
+        }
+        return null;
+    };
+
 """

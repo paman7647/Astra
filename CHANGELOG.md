@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.1b4] - 2026-02-19
+
+### Added
+- **Rate-limit protection for edits**: Integrated a mandatory 0.5s stability delay in `Message.edit` and `ChatMethods.edit_message`. This helps prevent WhatsApp rate limits and race conditions when performing rapid-fire edits.
+
+### Fixed
+- **Attribute cleanup**: Standardized on `is_media` globally to eliminate sporadic `AttributeError` crashes related to legacy `has_media` property.
+- **Quoted media extraction**: Refined the model to accurately detect quoted stickers and media even when received as skeletal payloads.
+
+### Changed
+- **Unthrottled deletions**: Intentionally kept deletion methods fast. Multi-message removal remains high-speed without artificial delays.
+- **Documentation**: Updated the Sphinx guide to reflect framework-level timing management, reducing the need for manual sleeps in custom handlers.
+
 ## [0.0.1b3] - 2026-02-17
 
 ### Added

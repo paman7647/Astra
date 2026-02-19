@@ -64,10 +64,10 @@ Dependencies
   - Yes
  * - ``qrcode``
   - Terminal QR codes
-  - Optional (``[qr]``)
+  - Yes
  * - ``Pillow``
   - QR image rendering
-  - Optional (``[qr]``)
+  - Yes
 
 Verifying your install
 ----------------------

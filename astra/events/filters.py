@@ -63,6 +63,10 @@ class NotCriterion(Criterion):
  async def matches(self, event: Any) -> bool:
   return not await self.c.matches(event)
 
+class AllCriterion(Criterion):
+ async def matches(self, event: Any) -> bool:
+  return True
+
 # --- Predicate Implementations ---
 
 class ChatTypeCriterion(Criterion):
@@ -126,15 +130,15 @@ class TypeCriterion(Criterion):
   return actual == self.value
 
 class CommandCriterion(Criterion):
- def __init__(self, command: str, prefixes: str = "/."):
-  self.command = command
+ def __init__(self, command: Union[str, List[str]], prefixes: str = "/."):
+  self.commands = {command} if isinstance(command, str) else set(command)
   self.prefixes = prefixes
 
  async def matches(self, event: Any) -> bool:
   from .context import EventContext
   if isinstance(event, EventContext):
    # 1. Check command name match
-   if event.command != self.command:
+   if event.command not in self.commands:
     return False
    # 2. Check prefix match (if prefixes defined)
    if self.prefixes and event.prefix not in self.prefixes:
@@ -150,6 +154,7 @@ class Filters:
  """
 
  # --- Direction & Identity ---
+ all = AllCriterion()
  incoming = DirectionCriterion(outgoing=False)
  outgoing = DirectionCriterion(outgoing=True)
  me = DirectionCriterion(outgoing=True)
@@ -175,7 +180,7 @@ class Filters:
  quoted = TypeCriterion("has_quoted_msg", True)
 
  @staticmethod
- def command(name: str, prefixes: str = "/.") -> Criterion:
+ def command(name: Union[str, List[str]], prefixes: str = "/.") -> Criterion:
   """
   Matches if the message is a specific command.
 
@@ -185,11 +190,34 @@ class Filters:
   """
   # Surgical normalization: if name starts with a known prefix,
   # we treat that char as the only valid prefix.
-  for p in prefixes:
-   if name.startswith(p):
-    return CommandCriterion(name[len(p):], p)
-
-  return CommandCriterion(name, prefixes)
+  if isinstance(name, str):
+   for p in prefixes:
+    if name.startswith(p):
+     return CommandCriterion(name[len(p):], p)
+   return CommandCriterion(name, prefixes)
+  
+  # Handle list of names (aliases)
+  cmds = []
+  for n in name:
+   found_prefix = False
+   for p in prefixes:
+    if n.startswith(p):
+     cmds.append((n[len(p):], p))
+     found_prefix = True
+     break
+   if not found_prefix:
+    cmds.append((n, prefixes))
+  
+  # If all have the same prefix, we can group them
+  first_p = cmds[0][1]
+  if all(c[1] == first_p for c in cmds):
+   return CommandCriterion([c[0] for c in cmds], first_p)
+  
+  # Otherwise, we have to return an OR of CommandCriteria
+  res = CommandCriterion(cmds[0][0], cmds[0][1])
+  for c in cmds[1:]:
+   res = res | CommandCriterion(c[0], c[1])
+  return res
 
  @staticmethod
  def text_contains(text: str, ignore_case: bool = True) -> Criterion:
