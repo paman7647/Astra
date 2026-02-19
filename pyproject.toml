@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "astra-engine"
-version = "0.0.2b5"
+version = "0.0.2b6"
 description = "A high-performance WhatsApp Web automation library for Python."
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -42,6 +42,11 @@ dependencies = [
  "qrcode>=7.4",
  "Pillow>=10.0",
  "requests>=2.31",
+ "aiohttp>=3.9.0",
+ "motor>=3.3.2",
+ "aiosqlite>=0.19.0",
+ "psutil>=5.9.0",
+ "yt-dlp>=2023.12.30",
 ]
 
 [project.optional-dependencies]
