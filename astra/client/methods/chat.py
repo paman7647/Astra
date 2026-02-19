@@ -12,7 +12,7 @@ chat operations like sending messages, polls, and media.
 
 import logging
 import time
-from typing import Optional, List, Any, Dict, TYPE_CHECKING
+from typing import Optional, List, Any, Dict, TYPE_CHECKING, Union
 from ...models import Message, Chat
 from ...errors import (
  MessageSendError, MessageTimeoutError, MessageEditError,
