@@ -80,7 +80,18 @@ npm-debug.log*
 *.log
 *.pid
 *.seed
+
+# -- Strict Ignore (User Request) -----------------------------
+# Ignore everything by default
+# *
+# But we can't do that easily without breaking git. 
+# Instead, we'll list common dev artifacts to exclude.
+
 test.py
 blog_post.md
 plugins/
 *.system_generated*
+temp/
+tmp/
+assets/
+tests/

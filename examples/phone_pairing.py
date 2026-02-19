@@ -36,7 +36,7 @@ async def main():
     await client.start()
     
     # Run until disconnected
-    await client.run_until_disconnected()
+    await client.run_forever()
 
 if __name__ == "__main__":
-    client.run_forever_sync()
+    asyncio.run(main())
