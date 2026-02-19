@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.2b5] - 2026-02-20
+
+### Added
+- **Force Fetching Support**: Added `force` parameter to `Client.fetch_messages` and bridge-level `fetchMessages` to bypass internal caches and retrieve fresh data directly from WhatsApp storage.
+- **High-Level Media Methods**: Added `send_image`, `send_video`, `send_audio`, and `send_sticker` directly to `Client`.
+- **Client.delete_message Shortcut**: Introduced a streamlined `delete_message` method in the `Client` class for easier moderation plugin development.
+- **Centralized Plugin Imports**: Command modules can now use `from . import *` to access core framework and utility symbols from the package level.
+- **Smart Sticker Handling**: `send_sticker` now supports both file paths and Base64 data strings.
+- **Client Shortcuts**: Exposed media methods (`send_audio`, `download_media`, etc.) as first-class citizens on the `Client` instance.
+
+### Fixed
+- **Mention Parsing Resilience**: Fixed `TypeError` in `Message.from_payload` by ensuring `mentionedJidList` gracefully handles `null` or missing values.
+- **Plugin Compatibility**: Restored `download_media` and patched `send_media` to support `reply_to`, fixing crashes in plugins like `sticker`, `spotify`, and `youtube`.
+- **Bridge Argument Normalization**: Updated `Astra.fetchMessages` (JS) to robustly handle both positional and dictionary-based argument payloads.
+- **Userbot Response Loops**: Refined `purge` and `smart_reply` logic to prevent message editing failures when the status message and command message are the same.
+- **Stability**: Standardized codebase with professional headers and updated repository branding (`Astra-Userbot`).
+
 ## [0.0.1b4] - 2026-02-19
 
 ### Added

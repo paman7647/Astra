@@ -40,8 +40,7 @@ MEDIA_CODE = r"""
   const isAudio = mimetype.startsWith('audio/');
   const isImage = mimetype.startsWith('image/');
   const targetId = typeof to === 'string' ? to : (to._serialized || to.id?._serialized || to.id);
-  if (!Store.AddressFactory || typeof Store.AddressFactory.createWid !== 'function') throw new Error('Astra: AddressFactory unavailable');
-  const wid = Store.AddressFactory.createWid(targetId.includes('@') ? targetId : `${targetId}@c.us`);
+  const wid = window.Astra.createWid(targetId.includes('@') ? targetId : `${targetId}@c.us`);
   const chat = await window.Astra.getChat(wid);
   if (!chat) throw new Error('Astra: Chat not found for ' + targetId);
 
@@ -78,16 +77,16 @@ MEDIA_CODE = r"""
    if (chat.id && (typeof chat.id.isGroup === 'function' ? chat.id.isGroup() : chat.id.isGroup)) {
     const isLidGroups = chat.groupMetadata && chat.groupMetadata.isLidAddressingMode;
     const f = isLidGroups ? (lid || pn) : pn;
-    part = Store.AddressFactory.asUserWidOrThrow ? Store.AddressFactory.asUserWidOrThrow(f) : (Store.AddressFactory.createWid ? Store.AddressFactory.createWid(f._serialized || f) : f);
+    part = window.Astra.createWid(f);
    }
 
    let key;
    if (Store.MessageIdentity) {
     key = new Store.MessageIdentity({
-     from: Store.AddressFactory.createWid ? Store.AddressFactory.createWid(from._serialized || from) : (from._serialized || from),
+     from: window.Astra.createWid(from),
      to: chat.id,
      id,
-     participant: part ? (Store.AddressFactory.createWid ? Store.AddressFactory.createWid(part._serialized || part) : (part._serialized || part)) : undefined,
+     participant: part ? window.Astra.createWid(part) : undefined,
      selfDir: 'out'
     });
    } else if (Store.MsgKey) {
@@ -95,7 +94,7 @@ MEDIA_CODE = r"""
      from: from,
      to: chat.id,
      id: id,
-     participant: part ? (Store.AddressFactory.createWid ? Store.AddressFactory.createWid(part._serialized || part) : (part._serialized || part)) : undefined,
+     participant: part ? window.Astra.createWid(part) : undefined,
      selfDir: 'out'
     });
    } else {
@@ -350,7 +349,91 @@ MEDIA_CODE = r"""
   }
  };
 
+ console.log("Astra Media Bridge v2 Loaded");
+
+ window.Astra.mediaCache = {};
+
+ window.Astra.readMediaChunk = async (id, offset, length) => {
+  const buffer = window.Astra.mediaCache[id];
+  if (!buffer) return null;
+  
+  // Use subarray for zero-copy view, then blob it
+  const slice = buffer.subarray(offset, offset + length);
+  return await window.Astra.bufToBase64(slice);
+ };
+
+ window.Astra.clearMediaCache = (id) => {
+  delete window.Astra.mediaCache[id];
+  return true;
+ };
+
+ window.Astra.retrieveMediaFromDOM = async (msgId) => {
+  console.log(`[Astra] Attempting DOM retrieval for ${msgId}`);
+  try {
+   const Store = window.Astra.initializeEngine();
+   
+   // 0. Scroll message into view (Handle Virtualization)
+   // WhatsApp removes off-screen messages from DOM. We must scroll to it.
+   try {
+    const msg = window.Store.Msg.get(msgId);
+    if (msg && window.Store.Cmd && window.Store.Cmd.scrollToMessage) {
+     console.log("[Astra] DOM: Scrolling to message...");
+     window.Store.Cmd.scrollToMessage(msg);
+     await new Promise(r => setTimeout(r, 700)); // Wait for render
+    }
+   } catch (e) {
+    console.warn("[Astra] DOM: Scroll failed, trying searching anyway", e);
+   }
+
+   // 1. Find the message container
+   // Try data-id first (most precise), then fallback to row matching
+   let msgElement = document.querySelector(`div[data-id="${msgId}"]`) || 
+           document.querySelector(`div[data-id*="${msgId.split('_').pop()}"]`);
+   
+   if (!msgElement) {
+    // Fallback: Search all rows in main for the ID
+    const rows = Array.from(document.querySelectorAll('#main [role="row"]'));
+    msgElement = rows.find(r => r.getAttribute('data-id') === msgId || r.innerHTML.includes(msgId.split('_').pop()));
+   }
+
+   if (!msgElement) {
+    console.warn("[Astra] DOM: Message container not found (Virtualization?)");
+    return null;
+   }
+
+   // 2. Find the media element
+   // Images are usually img, Videos/GIFs have video or img thumbnails
+   // We look for src starting with blob:
+   const mediaElement = Array.from(msgElement.querySelectorAll('img, video')).find(el => el.src && el.src.startsWith('blob:'));
+   
+   if (!mediaElement) {
+    console.warn("[Astra] DOM: No blob media element found in message");
+    // Attempt to click to load if it's a "Click to download" overlay? 
+    // Risky, skipping for now.
+    return null;
+   }
+
+   const blobUrl = mediaElement.src;
+   console.log(`[Astra] DOM: Found blob URL: ${blobUrl}`);
+
+   // 3. Fetch the data from the blob URL
+   // This works because we are in the same context
+   const response = await fetch(blobUrl);
+   const blob = await response.blob();
+   const buffer = await blob.arrayBuffer();
+   const arrayBuffer = new Uint8Array(buffer);
+
+   console.log(`[Astra] DOM: Fetched ${arrayBuffer.byteLength} bytes`);
+   return arrayBuffer;
+
+  } catch (e) {
+   console.error("[Astra] DOM retrieval failed:", e);
+   return null;
+  }
+ };
+
  window.Astra.retrieveMedia = async (msgId) => {
+  console.log(`[Astra] retrieveMedia called for ${msgId}`);
   const Store = window.Astra.initializeEngine();
   const repo = Store.MessageRepo || Store.MsgRepo;
   let msgIdObj = msgId;
@@ -359,30 +442,71 @@ MEDIA_CODE = r"""
   }
 
   const msg = repo.get(msgIdObj) || (await repo.getMessagesById([msgId]))?.messages?.[0];
-  if (!msg || !msg.directPath) return null;
-
-  if (msg.mediaData && msg.mediaData.mediaStage !== 'RESOLVED' && typeof msg.downloadMedia === 'function') {
-   await msg.downloadMedia({ downloadEvenIfExpensive: true, rmrReason: 1 });
+  if (!msg) {
+   console.warn("msg not found in repo");
+   return null;
   }
 
-  try {
-   const mock = { addAnnotations: function() { return this; }, addPoint: function() { return this; } };
-   const downloadManager = Store.DownloadManager || window.require('WAWebDownloadManager')?.downloadManager;
-   const downloadFunc = downloadManager?.downloadAndMaybeDecrypt || Store.MediaDownloader?.downloadAndMaybeDecrypt;
+  let decryptedMedia = null;
 
-   if (!downloadFunc) {
-    console.warn('[Astra] No downloadAndMaybeDecrypt available');
-    return null;
+  // --- STRATEGY 1: Internal DownloadManager (Preferred for full quality) ---
+  if (msg.directPath && msg.mediaKey && msg.encFilehash && msg.filehash) {
+   try {
+    const downloadManager = window.Store.DownloadManager;
+    const downloadFunc = downloadManager?.downloadAndMaybeDecrypt;
+    
+    if (downloadFunc) {
+      if (msg.mediaData.mediaStage != 'RESOLVED') {
+       try {
+        console.log("Downloading body...");
+        await msg.downloadMedia({ downloadEvenIfExpensive: true, rmrReason: 1 });
+       } catch (e) {
+        console.warn("downloadMedia failed", e);
+       }
+      }
+
+      console.log("Decrypting media...");
+      const mockQpl = { addAnnotations: function() { return this; }, addPoint: function() { return this; } };
+      decryptedMedia = await downloadFunc({
+       directPath: msg.directPath,
+       encFilehash: msg.encFilehash,
+       filehash: msg.filehash,
+       mediaKey: msg.mediaKey,
+       mediaKeyTimestamp: msg.mediaKeyTimestamp || msg.t,
+       type: msg.type,
+       signal: (new AbortController).signal,
+       downloadQpl: mockQpl
+      });
+    }
+   } catch (err) {
+    console.error("Strategy 1 (Internal) failed:", err);
    }
+  }
 
-   const bin = await downloadFunc({
-    directPath: msg.directPath, encFilehash: msg.encFilehash, filehash: msg.filehash,
-    mediaKey: msg.mediaKey, mediaKeyTimestamp: msg.mediaKeyTimestamp, type: msg.type,
-    signal: (new AbortController).signal, downloadQpl: mock
-   });
-   const data = await window.Astra.bufToBase64(bin);
-   return { data, mimetype: msg.mimetype, filename: msg.filename, size: msg.size };
-  } catch (e) { console.error("retrieveMedia error:", e); return null; }
+  // --- STRATEGY 2: DOM Scraping (Fallback) ---
+  if (!decryptedMedia) {
+   console.log("Internal download failed or missing params. Switching to Strategy 2: DOM.");
+   decryptedMedia = await window.Astra.retrieveMediaFromDOM(msgId);
+  }
+
+  if (!decryptedMedia) {
+   console.error("All strategies failed. Cannot retrieve media.");
+   return null;
+  }
+
+  console.log("Media retrieved. Caching...");
+  // Chunking Strategy
+  const streamId = `media_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  window.Astra.mediaCache[streamId] = decryptedMedia;
+
+  return {
+   streamId: streamId,
+   length: decryptedMedia.byteLength,
+   mimetype: msg.mimetype,
+   filename: msg.filename,
+   filesize: msg.size
+  };
  };
 })();
 """
+

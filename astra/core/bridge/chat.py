@@ -10,10 +10,10 @@ CHAT_CODE = r"""
  window.Astra.ensureWid = (value) => {
   const Store = window.Astra.initializeEngine();
   if (!value) return null;
-  if (typeof value === 'string') return Store.WidFactory.createWid(value);
+  if (typeof value === 'string') return window.Astra.createWid(value);
   if (typeof value === 'object') {
    const id = value._serialized || value.serialized || value.id;
-   if (id && (typeof id === 'string' || id._serialized)) return Store.WidFactory.createWid(id._serialized || id);
+   if (id && (typeof id === 'string' || id._serialized)) return window.Astra.createWid(id._serialized || id);
   }
   return value;
  };
@@ -111,54 +111,10 @@ CHAT_CODE = r"""
   return window.Astra.serializeMsg(resultMsg);
  };
 
-  window.Astra.getChatById = async (chatId) => {
-  try {
-   const Store = window.Astra.initializeEngine();
-   const chatWid = window.Astra.ensureWid(chatId);
-
-   let chat = Store.Chat.get(chatWid);
-   if (!chat && Store.FindOrCreateChat && Store.FindOrCreateChat.findOrCreateLatestChat) {
-    try { chat = (await Store.FindOrCreateChat.findOrCreateLatestChat(chatWid))?.chat; } catch(e) {}
-   }
-   if (!chat && Store.Chat.find) {
-    try { chat = await Store.Chat.find(chatWid); } catch(e) {}
-   }
-
-   return window.Astra.serializeChat(chat);
-  } catch (e) {
-   console.error('[Astra] getChatById failed:', e.message);
-   throw e;
-  }
- };
-
- window.Astra.getContactById = async (contactId) => {
-  try {
-   const Store = window.Astra.initializeEngine();
-   const contactWid = window.Astra.ensureWid(contactId);
-
-   let contact = Store.Contact.get(contactWid);
-   if (!contact && Store.Contact.find) {
-    try { contact = await Store.Contact.find(contactWid); } catch(e) {}
-   }
-   if (!contact) return null;
-
-   return {
-    id: contact.id._serialized,
-    name: contact.name || contact.pushname || contact.formattedName || contact.id.user,
-    isMyContact: !!contact.isMyContact,
-    isUser: !!contact.isUser,
-    isBusiness: !!contact.isBusiness,
-    verifiedName: contact.verifiedName
-   };
-  } catch (e) {
-   console.error('[Astra] getContactById failed:', e.message);
-   throw e;
-  }
- };
 
  window.Astra.markSeen = async (chatId) => {
   const Store = window.Astra.initializeEngine();
-  const chatWid = Store.WidFactory.createWid(chatId);
+  const chatWid = window.Astra.createWid(chatId);
   const chat = Store.Chat.get(chatWid);
   if (!chat) return false;
 
@@ -171,7 +127,7 @@ CHAT_CODE = r"""
 
  window.Astra.archiveChat = async (chatId, archive = true) => {
   const Store = window.Astra.initializeEngine();
-  const chatWid = Store.WidFactory.createWid(chatId);
+  const chatWid = window.Astra.createWid(chatId);
   const chat = Store.Chat.get(chatWid) || await Store.Chat.find(chatWid);
   if (!chat) return false;
   if (Store.Cmd && Store.Cmd.archiveChat) {
@@ -184,7 +140,7 @@ CHAT_CODE = r"""
  window.Astra.pinChat = async (chatId, pin = true) => {
   try {
    const Store = window.Astra.initializeEngine();
-   const Wid = Store.WidFactory.createWid(chatId);
+   const Wid = window.Astra.createWid(chatId);
    const chat = Store.Chat.get(Wid) || await Store.Chat.find(Wid);
    if (!chat) return false;
 
@@ -201,7 +157,7 @@ CHAT_CODE = r"""
 
  window.Astra.muteChat = async (chatId, expiration = -1) => {
   const Store = window.Astra.initializeEngine();
-  const chatWid = Store.WidFactory.createWid(chatId);
+  const chatWid = window.Astra.createWid(chatId);
   const chat = Store.Chat.get(chatWid);
   if (!chat || !chat.mute) return false;
   if (expiration !== 0) {
@@ -321,39 +277,10 @@ CHAT_CODE = r"""
   throw new Error("Reaction module not found or failed signature.");
  };
 
- window.Astra.fetchMessages = async (chatId, searchOptions = {}) => {
-  const Store = window.Astra.initializeEngine();
-  const chatWid = Store.WidFactory.createWid(chatId);
-  const chat = Store.Chat.get(chatWid) || await Store.Chat.find(chatWid);
-  if (!chat) throw new Error("Astra: Chat not found");
-
-  const msgFilter = (m) => {
-   if (m.isNotification) return false;
-   if (searchOptions && searchOptions.fromMe !== undefined && m.id.fromMe !== searchOptions.fromMe) return false;
-   return true;
-  };
-
-  let msgs = chat.msgs.getModelsArray().filter(msgFilter);
-
-  if (searchOptions && searchOptions.limit > 0) {
-   while (msgs.length < searchOptions.limit) {
-    const loadedMessages = await Store.ConversationMsgs.loadEarlierMsgs(chat, chat.msgs);
-    if (!loadedMessages || !loadedMessages.length) break;
-    msgs = [...loadedMessages.filter(msgFilter), ...msgs];
-   }
-
-   if (msgs.length > searchOptions.limit) {
-    msgs.sort((a, b) => (a.t > b.t) ? 1 : -1);
-    msgs = msgs.splice(msgs.length - searchOptions.limit);
-   }
-  }
-
-  return msgs.map(m => window.Astra.serializeMsg(m));
- };
 
  window.Astra.syncHistory = async (chatId) => {
   const Store = window.Astra.initializeEngine();
-  const chatWid = Store.WidFactory.createWid(chatId);
+  const chatWid = window.Astra.createWid(chatId);
   const chat = Store.Chat.get(chatWid) ?? (await Store.Chat.find(chatWid));
   if (chat?.endOfHistoryTransferType === 0) {
    await Store.HistorySync.sendPeerDataOperationRequest(3, {

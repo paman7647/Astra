@@ -187,6 +187,7 @@ class ChatMethods:
   mimetype: Optional[str] = None,
   filename: Optional[str] = None,
   caption: Optional[str] = None,
+  reply_to: Optional[str] = None,
   **kwargs
  ) -> Message:
   """
@@ -199,8 +200,12 @@ class ChatMethods:
   else:
    data = media
 
+  options = kwargs.get("options", {})
+  if reply_to:
+   options["quotedMsgId"] = reply_to
+
   try:
-   return await self._client.api.send_media(chat_id, data, mimetype, filename=filename, caption=caption)
+   return await self._client.api.send_media(chat_id, data, mimetype, filename=filename, caption=caption, options=options)
   except Exception as e:
    raise MediaUploadError(f"Failed to send media to {chat_id}: {e}", cause=e) from e
 

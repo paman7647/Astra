@@ -156,7 +156,7 @@ class Message:
    quoted_type=quoted_type,
    has_quoted_msg=bool(quoted_id or data.get("hasQuotedMsg")),
    mentioned_jids=[JID.parse(m) if isinstance(m, str) else JID.parse(m.get("_serialized", ""))
-       for m in data.get("mentionedJidList", [])]
+       for m in (data.get("mentionedJidList") or [])]
   )
 
  async def reply(self, text: str) -> "Message":

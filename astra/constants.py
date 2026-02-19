@@ -11,7 +11,7 @@ These values define the framework's behavior, timeouts, and selectors.
 import os
 
 # --- Framework Metadata ---
-VERSION = "0.0.1"
+VERSION = "0.0.2b5"
 DEFAULT_USER_AGENT = (
  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:122.0) "
  "Gecko/20100101 Firefox/122.0"

@@ -63,7 +63,7 @@ class Client:
   phone: Optional[str] = None,
   headless: bool = True,
   log_level: int = logging.INFO,
-  show_banner: bool = True
+  show_banner: bool = True, use_cache: bool = True
  ):
   """
   Initialize the Astra Client.
@@ -81,7 +81,7 @@ class Client:
   self.phone = phone or os.getenv("PHONE_NUMBER")
   self.headless = headless
   self._show_banner = show_banner
-
+  self.use_cache = use_cache
   # 2. Core Controllers
   self.status = LifeCycleController()
   self.browser = BrowserController(self.session_path, headless=headless)
@@ -158,6 +158,27 @@ class Client:
   """Shortcut for client.chat.send_media."""
   return await self.chat.send_media(*args, **kwargs)
 
+ async def send_sticker(self, *args, **kwargs) -> Message:
+  """Shortcut for client.media.send_sticker."""
+  return await self.media.send_sticker(*args, **kwargs)
+
+ async def send_video(self, *args, **kwargs) -> Message:
+  """Shortcut for client.media.send_video."""
+  return await self.media.send_video(*args, **kwargs)
+
+ async def send_audio(self, *args, **kwargs) -> Message:
+  """Shortcut for client.media.send_audio."""
+  return await self.media.send_audio(*args, **kwargs)
+  
+ 
+ async def delete_message(self, chat_id: str, message_id: str, everyone: bool = True) -> bool:
+  """Shortcut for client.chat.delete_message."""
+  return await self.chat.delete_message(message_id, everyone=everyone)
+
+ async def download_media(self, *args, **kwargs) -> str:
+  """Shortcut for client.media.download_media."""
+  return await self.media.download_media(*args, **kwargs)
+
  # --- Core Operations ---
 
  async def start(self):
@@ -217,7 +238,7 @@ class Client:
    await self._start_idb_observer()
 
    # 8. Initial cache population
-   await self._populate_cache()
+   if self.use_cache: await self._populate_cache()
 
    # Print post-auth session info
    if self._show_banner:
@@ -434,6 +455,16 @@ class Client:
   """
   return Conversation(self, chat_id, timeout=timeout)
 
+ async def fetch_messages(self, chat_id: str, limit: int = 50, force: bool = False) -> List[Message]:
+  """
+  Fetches messages from a chat.
+  """
+  data = await self.bridge.call("fetchMessages", {"chatId": chat_id, "limit": limit, "force": force})
+  if not data:
+   return []
+   
+  return [Message.from_payload(m, client=self) for m in data]
+
  # --- Session Management ---
 
  async def export_session(self) -> dict:
@@ -514,7 +545,7 @@ class Client:
   
   Environment Variables:
    TRACE_ERROR (bool): If true, prints full Python stack traces on failure.
-               Defaults to False (shows clean error + hint).
+   Defaults to False (shows clean error + hint).
   """
   loop = asyncio.new_event_loop()
   asyncio.set_event_loop(loop)

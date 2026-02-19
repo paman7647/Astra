@@ -7,7 +7,7 @@ GROUP_CODE = r"""
 (function() {
  window.Astra = window.Astra || {};
 
- const getWid = (id, Store) => Store.AddressFactory.createWid(id);
+ const getWid = (id, Store) => window.Astra.createWid(id);
  const getChat = async (id, Store) => await window.Astra.getChat(getWid(id, Store));
 
  window.Astra.kickParticipants = async function(groupId, participants) {
@@ -113,7 +113,7 @@ GROUP_CODE = r"""
  window.Astra.createGroup = async function(title, participants) {
   const Store = window.Astra.initializeEngine();
   const pids = participants.map(p => {
-   const w = getWid(p, Store);
+   const w = window.Astra.createWid(p);
    if (!w) return null;
    // Audited: expects { lid: Wid } or { phoneNumber: Wid }
    return { phoneNumber: w, lid: w };
