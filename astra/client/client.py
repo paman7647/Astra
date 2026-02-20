@@ -455,15 +455,12 @@ class Client:
   """
   return Conversation(self, chat_id, timeout=timeout)
 
- async def fetch_messages(self, chat_id: str, limit: int = 50, force: bool = False) -> List[Message]:
+ async def fetch_messages(self, chat_id: str, **kwargs) -> List[Message]:
   """
-  Fetches messages from a chat.
+  Shortcut for client.chat.fetch_messages.
+  Fetches messages from a chat with advanced filters.
   """
-  data = await self.bridge.call("fetchMessages", {"chatId": chat_id, "limit": limit, "force": force})
-  if not data:
-   return []
-   
-  return [Message.from_payload(m, client=self) for m in data]
+  return await self.chat.fetch_messages(chat_id, **kwargs)
 
  # --- Session Management ---
 
@@ -663,11 +660,11 @@ class Client:
  @staticmethod
  def _get_local_ip() -> str:
   try:
-   s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-   s.settimeout(1)
-   s.connect(("8.8.8.8", 80))
-   ip = s.getsockname()[0]
-   s.close()
+   socket_obj = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+   socket_obj.settimeout(1)
+   socket_obj.connect(("8.8.8.8", 80))
+   ip = socket_obj.getsockname()[0]
+   socket_obj.close()
    return ip
   except Exception:
    return "127.0.0.1"

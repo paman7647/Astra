@@ -13,9 +13,9 @@ JS_SCRIPTS = {
             const sleep = (ms) => new Promise(r => setTimeout(r, ms));
             
             // 1. Find the Link Text
-            // We look for "Link with phone number" (partial match)
+            // We look for "Link with phone number instead." (partial match)
             const findLink = () => {
-                const xpath = "//div[contains(text(), 'Link with phone number')] | //span[contains(text(), 'Link with phone number')]";
+                const xpath = "//div[contains(text(), 'Link with phone number instead')] | //span[contains(text(), 'Link with phone number instead')] | //div[contains(text(), 'Link with phone number')] | //span[contains(text(), 'Link with phone number')]";
                 const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
                 return result.singleNodeValue;
             };
@@ -234,7 +234,7 @@ JS_SCRIPTS = {
             if (isPhoneInput) return "LOGIN_PHONE";
 
             if (check('canvas') || check('[data-testid="qrcode"]') || check('[data-ref]')) return "LOGIN_QR";
-            if (findByText('Scan the QR code') || findByText('Link with phone number') || findByText('Log in with phone number')) return "LOGIN_QR";
+            if (findByText('Scan the QR code') || findByText('Link with phone number') || findByText('Log in with phone number') || findByText('Link with phone number instead')) return "LOGIN_QR";
 
             return "UNKNOWN";
         }

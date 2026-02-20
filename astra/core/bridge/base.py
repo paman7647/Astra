@@ -206,81 +206,168 @@ window.Astra = window.Astra || {};
     }
   };
 
+  // --- Logging Helper ---
+  window.Astra.log = (msg, level = 'log') => {
+    const formatted = `[Astra] ${msg}`;
+    if (level === 'error') console.error(formatted);
+    else if (level === 'warn') console.warn(formatted);
+    else console.log(formatted);
+    
+    if (window.Astra && typeof window.Astra.emit === 'function') {
+      window.Astra.emit('log', { msg, level });
+    }
+  };
+
   window.Astra.fetchMessages = async (chatId, options = {}) => {
+    window.Astra.log(`fetchMessages sequence started for ${chatId}`);
     try {
-      // Robust Argument Normalization
       let targetId = chatId;
       let targetOptions = options;
 
+      // Normalize arguments
       if (typeof chatId === 'object' && chatId.chatId) {
         targetId = chatId.chatId;
-        targetOptions = chatId;
+        targetOptions = chatId.searchOptions || chatId;
       }
 
-      const limit = (typeof targetOptions === 'number') ? targetOptions : (targetOptions.limit || 50);
-      const force = targetOptions.force || false;
+      const limit = parseInt(targetOptions.limit || targetOptions.count || 10);
+      const anchorId = targetOptions.msgId || targetOptions.message_id || targetOptions.id || null;
+      const direction = targetOptions.direction === 'before' ? 'before' : 'after';
+      const fromMe = targetOptions.fromMe !== undefined ? targetOptions.fromMe : targetOptions.from_me;
 
-      console.log(`[Astra] fetchMessages called for: ${targetId} (limit: ${limit}, force: ${force})`);
+      window.Astra.log(`Parameters: Anchor=${anchorId}, Dir=${direction}, Limit=${limit}`, 'info');
 
       if (!targetId) {
-        console.warn("[Astra] fetchMessages: Argument chatId is missing/null");
+        window.Astra.log("Error: No targetId provided.", "error");
         return [];
       }
 
-      const chat = await window.Astra.getChat(targetId, force);
+      const chat = await window.Astra.getChat(targetId, false);
       if (!chat) {
-        console.warn("[Astra] fetchMessages: Chat not found even after getChat call");
+        window.Astra.log(`Error: Chat ${targetId} not found.`, "error");
         return [];
       }
 
+      const Store = window.Astra.initializeEngine();
+      if (!Store.msgFindQuery) {
+        window.Astra.log("Discovering msgFindQuery...", "log");
+        Store.msgFindQuery = window.Astra.mR.findModule(m => m && m.msgFindQuery && (m.getMsgsByMsgKey || m.queryMessageType))?.msgFindQuery;
+      }
+      
       const isValidMsg = (m) => {
-        if (!m || m.isNotification) return false;
-        if (searchOptions && searchOptions.fromMe !== undefined && m.id.fromMe !== searchOptions.fromMe) return false;
-        return true;
+          if (!m || m.isNotification) return false;
+          if (fromMe !== undefined && m.id.fromMe !== fromMe) return false;
+          return true;
       };
 
+      const getLocalArray = () => chat.msgs.getModelsArray ? chat.msgs.getModelsArray() : (chat.msgs.models || []);
+
       let msgs = [];
-      try {
-        const models = chat.msgs.getModelsArray ? chat.msgs.getModelsArray() : (chat.msgs.models || []);
-        msgs = models.filter(isValidMsg);
-      } catch (e) {
-        console.warn("[Astra] Failed to get initial messages:", e);
+
+      // Strategy 1: Local Cache (Only used for small tails or if engine query fails)
+      const tryLocal = () => {
+        if (anchorId) {
+          window.Astra.log(`Strategy 1: Searching for anchor ${anchorId} locally...`);
+          let anchorMsg = Store.Msg.get(anchorId);
+          if (!anchorMsg) anchorMsg = getLocalArray().find(m => m.id._serialized === anchorId);
+
+          if (anchorMsg) {
+            const all = getLocalArray().filter(isValidMsg);
+            all.sort((a, b) => a.t - b.t);
+            const idx = all.findIndex(m => m.id._serialized === anchorId);
+            if (idx !== -1) {
+              const slice = (direction === 'after') ? all.slice(idx + 1, idx + 1 + limit) : all.slice(Math.max(0, idx - limit), idx);
+              window.Astra.log(`Strategy 1 found ${slice.length} messages near anchor.`);
+              return slice;
+            }
+          }
+        } else {
+          window.Astra.log("Strategy 1: Fetching tail from local cache.");
+          const all = getLocalArray().filter(isValidMsg);
+          all.sort((a, b) => a.t - b.t);
+          const slice = all.slice(-limit);
+          window.Astra.log(`Strategy 1 found ${slice.length} messages in tail.`);
+          return slice;
+        }
+        return [];
+      };
+
+      // Strategy 2: msgFindQuery (Authoritative history retrieval)
+      const tryQuery = async (countOverride = limit) => {
+        if (!Store.msgFindQuery) return [];
+        
+        let queryDir = direction;
+        if (!anchorId && queryDir === 'after') {
+          window.Astra.log("Correcting anchorless 'after' query to 'before' for history retrieval.", "warn");
+          queryDir = 'before';
+        }
+
+        window.Astra.log(`Strategy 2: Querying engine (Dir=${queryDir}, Count=${countOverride}, Target=${targetId})`);
+        
+        let params = {
+          count: countOverride,
+          direction: queryDir,
+          remote: window.Astra.createWid(targetId),
+          fromMe: fromMe
+        };
+
+        if (anchorId) {
+          try {
+            const key = Store.MsgKey.fromString(anchorId);
+            params = Object.assign({}, key.obj || key, params);
+          } catch(e) { params.id = anchorId; }
+        }
+
+        try {
+          const queryType = ['media', 'search', 'star'].includes(targetOptions.type) ? targetOptions.type : direction;
+          const result = await Store.msgFindQuery(queryType, params);
+          let found = [];
+          if (result && result.messages) found = result.messages;
+          else if (Array.isArray(result)) found = result;
+          else if (result && result.models) found = result.models;
+          
+          return found.filter(isValidMsg);
+        } catch (e) {
+          window.Astra.log(`Strategy 2 query failed: ${e.message}`, "warn");
+          return [];
+        }
+      };
+
+      // Logic Flow:
+      // If limit is small and no anchor, try local first for speed.
+      // If limit is > 10 or local failed/insufficient, use Strategy 2.
+      if (!anchorId && limit <= 10) {
+        msgs = tryLocal();
       }
 
-      if (limit > msgs.length) {
-        let attempts = 0;
-        const Store = window.Astra.initializeEngine();
-        while (msgs.length < limit && attempts < 5) {
-          attempts++;
-          try {
-            if (chat.msgs && chat.msgs.msgLoadState && chat.msgs.msgLoadState.noEarlierMsgs) break;
-
-            if (!Store.ConversationMsgs || typeof Store.ConversationMsgs.loadEarlierMsgs !== 'function') {
-              console.warn("[Astra] ConversationMsgs.loadEarlierMsgs unavailable.");
-              break;
-            }
-
-            const loadedMessages = await Store.ConversationMsgs.loadEarlierMsgs(chat, chat.msgs);
-            if (!loadedMessages || !loadedMessages.length) break;
-
-            const models = chat.msgs.getModelsArray ? chat.msgs.getModelsArray() : (chat.msgs.models || []);
-            msgs = models.filter(isValidMsg);
-          } catch (e) {
-            console.warn("[Astra] Error loading earlier messages:", e);
-            break;
-          }
+      if (msgs.length < limit && Store.msgFindQuery) {
+        window.Astra.log(`Strategy 2 trigger: Current count ${msgs.length} < limit ${limit}`);
+        const queryResults = await tryQuery(limit);
+        if (queryResults.length > 0) {
+          msgs = queryResults.slice(0, limit);
         }
       }
 
-      msgs.sort((a, b) => (a.t > b.t) ? 1 : -1);
-      if (msgs.length > limit) {
-        msgs = msgs.slice(-limit);
+      // Final local fallback if query returned nothing
+      if (msgs.length === 0) {
+        window.Astra.log("No results from Strategy 2, performing final Strategy 1 fallback.");
+        msgs = tryLocal();
       }
 
+      // Strategy 3: Direct Load (Special case for anchor deep history)
+      if (msgs.length === 0 && anchorId && Store.ConversationMsgs && Store.ConversationMsgs.loadEarlierMsgs) {
+        window.Astra.log("Strategy 3: Last resort loadEarlierMsgs...");
+        try {
+            await Store.ConversationMsgs.loadEarlierMsgs(chat);
+            msgs = tryLocal();
+        } catch (s3Err) { window.Astra.log(`Strategy 3 Failed: ${s3Err.message}`, "warn"); }
+      }
+
+      window.Astra.log(`Final Result: Returning ${msgs.length}/${limit} messages.`, msgs.length >= limit ? "info" : "warn");
       return msgs.map(m => window.Astra.serializeMsg(m));
 
     } catch (criticalErr) {
-      console.error("[Astra] Critical crash in fetchMessages:", criticalErr);
+      window.Astra.log(`CRITICAL CRASH in fetchMessages: ${criticalErr.message}`, "error");
       return [];
     }
   };
@@ -732,7 +819,8 @@ window.Astra = window.Astra || {};
       PrivacyConstants: 'WAWebPrivacySettings',
       Settings: 'WAWebSetPushnameConnAction',
       StatusUtils: 'WAWebContactStatusBridge',
-      ProfilePicRepo: 'WAWebContactProfilePicThumbBridge'
+      ProfilePicRepo: 'WAWebContactProfilePicThumbBridge',
+      msgFindQuery: 'WAWebDBMessageFindLocal'
     };
 
     const requireFunc = window.require || window.__w;
@@ -848,6 +936,7 @@ window.Astra = window.Astra || {};
         Msg: (m) => m && m.get && m.add && (m.getModelsArray || (m.models && m.models.getModelsArray)) && m.models && m.getMessagesById,
         Contact: (m) => m && m.get && m.add && (m.getModelsArray || (m.models && m.models.getModelsArray)) && m.models && m.getMaybeMePnUser,
         SendMessage: (m) => (m.addAndSendMsgToChat && m.resendMsgToChat) || (m.sendMsgToChat && m.prepareMsg),
+        msgFindQuery: (m) => (m.msgFindQuery && m.getMsgsByMsgKey) || (m.msgFindQuery && m.queryMessageType),
         MsgKey: (m) => m.prototype && m.prototype.fromString && m.prototype.obj,
         Conn: (m) => m.Conn && (m.Conn.wid || m.Conn.me),
         User: (m) => m.getMaybeMeLidUser || m.getMaybeMePnUser || m.getMePnUserOrThrow,

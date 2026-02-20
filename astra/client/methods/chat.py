@@ -81,6 +81,15 @@ class ChatMethods:
   except Exception as e:
    raise MessageDeleteError(f"Failed to delete {message_id}: {e}") from e
 
+ async def bulk_delete(self, message_ids: List[str], everyone: bool = True) -> bool:
+  """
+  Deletes multiple messages in a single operation.
+  """
+  try:
+   return await self._client.api.bulk_delete(message_ids, for_everyone=everyone)
+  except Exception as e:
+   raise MessageDeleteError(f"Failed to bulk delete {len(message_ids)} messages: {e}") from e
+
  async def react(self, message_id: str, emoji: str) -> bool:
   """
   Reacts to a message.
@@ -150,18 +159,18 @@ class ChatMethods:
  async def fetch_messages(
   self,
   chat_id: str,
-  limit: Optional[int] = None,
-  from_me: Optional[bool] = None
+  **kwargs
  ) -> List[Message]:
   """
-  Loads chat messages, sorted from earliest to latest.
+  Loads chat messages with flexible options (limit, from_me, message_id, direction).
 
   Raises:
    ChatNotFoundError: [E3020] If the chat doesn't exist.
   """
-  options = {}
-  if limit is not None: options["limit"] = limit
-  if from_me is not None: options["fromMe"] = from_me
+  options = kwargs.copy()
+  # Map common aliases for JS bridge
+  if "message_id" in options:
+   options["msgId"] = options.pop("message_id")
 
   try:
    return await self._client.api.fetch_messages(chat_id, options=options)
@@ -201,8 +210,11 @@ class ChatMethods:
    data = media
 
   options = kwargs.get("options", {})
-  if reply_to:
-   options["quotedMsgId"] = reply_to
+  
+  # Handle various reply parameters for developer convenience
+  actual_reply_to = reply_to or kwargs.get("reply_to") or kwargs.get("quoted_message_id")
+  if actual_reply_to:
+   options["quotedMsgId"] = actual_reply_to
 
   try:
    return await self._client.api.send_media(chat_id, data, mimetype, filename=filename, caption=caption, options=options)

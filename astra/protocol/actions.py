@@ -64,6 +64,10 @@ class EngineAPI:
   """Removes a message from the thread."""
   return await self._bridge.call("deleteMessage", {"msgId": message_id, "forEveryone": for_everyone})
 
+ async def bulk_delete(self, message_ids: List[str], for_everyone: bool = True) -> bool:
+  """Removes multiple messages from the thread."""
+  return await self._bridge.call("bulkDeleteMessages", {"msgIds": message_ids, "forEveryone": for_everyone})
+
  async def edit_message(self, message_id: str, text: str) -> bool:
   """Edits a previously sent message."""
   res = await self._bridge.call("editMessage", {
@@ -86,14 +90,15 @@ class EngineAPI:
   """Triggers a peer data operation request to sync history."""
   return await self._bridge.call("syncHistory", {"chatId": chat_id})
 
- async def send_media(self, to: str, media: str, mimetype: str, filename: Optional[str] = None, caption: Optional[str] = None) -> Message:
+ async def send_media(self, to: str, media: str, mimetype: str, filename: Optional[str] = None, caption: Optional[str] = None, options: dict = None) -> Message:
   """Sends a media file."""
   raw = await self._bridge.call("sendMedia", {
    "to": to,
    "media": media,
    "mimetype": mimetype,
    "filename": filename,
-   "caption": caption
+   "caption": caption,
+   "options": options or {}
   })
   return DataTransformer.to_message(raw, self._client)
 

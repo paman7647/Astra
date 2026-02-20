@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.2b7] - 2026-02-21
+### Added
+- **Bridge-to-Python Logging**: Introduced `Astra.log` in the browser bridge, enabling real-time JS runtime logs to be streamed directly to the Python terminal.
+- **Enhanced History Fetching**: Implemented a 3-stage strategy (Local Cache -> msgFindQuery -> loadEarlierMsgs) for 100% reliable message retrieval, even after deep anchors.
+- **Anchorless Fetching**: The `.fetch` and `.history` commands now support being called without a reply, defaulting to the latest 10 messages in the chat.
+### Fixed
+- **History Command Crash**: Resolved a `TypeError` when `.history` was called without a quoted message.
+- **Bulk Delete Race Condition**: Fixed "Unexpected null or undefined" error in `bulkDeleteMessages` by ensuring Store job persistence.
+- **Fetch Count Consistency**: Fixed a bug where `.fetch` with high limits (>10) would only return 10 messages from the local cache tail.
+- **Command Directionality**: Corrected a mapping error where anchorless fetches defaulted to 'after', returning zero history.
+- **Protocol Stability**: Internal bridge logs promoted to `INFO` level for better visibility into engine decisions.
+
+## [0.0.2b6] - 2026-02-20
+### Added
+- **Monolithic Requirements:** Explicitly added support for `aiosqlite`, `motor`, `aiohttp`, `psutil`, and `yt-dlp` in `pyproject.toml` and `requirements.txt` to support the userbot wrapper directly.
+### Fixed
+- **Module Imports**: Cleaned up legacy `SystemHealth` and `MediaFilter` bugs causing nested module resolutions to fail.
+- **Typing Syntax**: Added missing `Union` to `astra/client/methods/chat.py` resolving a `NameError` crash during media initialization.
+
 ## [0.0.2b5] - 2026-02-20
 
 ### Added

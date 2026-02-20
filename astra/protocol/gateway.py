@@ -59,11 +59,11 @@ class ProtocolBridge:
       return
      level = payload.get("level", "log") if isinstance(payload, dict) else "log"
      if level == "error":
-      logger.debug(f"[WA] {msg[:200]}")
+      logger.error(f"[Bridge] {msg}")
      elif level == "warn":
-      logger.debug(f"[WA] {msg[:200]}")
+      logger.warning(f"[Bridge] {msg}")
      else:
-      logger.debug(f"[WA] {msg[:120]}")
+      logger.info(f"[Bridge] {msg}")
      return
     await self._process_event(name, payload)
 

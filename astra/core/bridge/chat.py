@@ -248,6 +248,66 @@ CHAT_CODE = r"""
   }
  };
 
+ window.Astra.bulkDeleteMessages = async function(msgIds, everyone = true, clearMedia = true) {
+  try {
+   const Store = window.Astra.initializeEngine();
+   if (!Array.isArray(msgIds)) msgIds = [msgIds];
+   
+   console.log(`[Astra] bulkDeleteMessages count=${msgIds.length} everyone=${everyone}`);
+   
+   const repo = Store.MessageRepo || Store.MsgRepo || Store.Msg;
+   const msgs = [];
+   for (const id of msgIds) {
+    const m = repo.get(id) || (await repo.getMessagesById?.([id]))?.messages?.[0];
+    if (m) msgs.push(m);
+   }
+
+   if (msgs.length === 0) return true;
+
+   const chat = Store.Chat.get(msgs[0].id.remote) || await Store.Chat.find(msgs[0].id.remote);
+   
+   // Group by chat if they are from different chats, but usually purge is within one chat
+   const chatMap = new Map();
+   for (const m of msgs) {
+    const remote = m.id.remote._serialized || m.id.remote;
+    if (!chatMap.has(remote)) chatMap.set(remote, []);
+    chatMap.get(remote).push(m);
+   }
+
+   for (const [remote, list] of chatMap.entries()) {
+    const targetChat = Store.Chat.get(remote) || await Store.Chat.find(remote);
+    
+    // Check if we can revoke all as admin or sender
+    const canRevokeAll = everyone && list.every(m => Store.MsgActionChecks && (Store.MsgActionChecks.canSenderRevokeMsg(m) || Store.MsgActionChecks.canAdminRevokeMsg(m)));
+
+    if (everyone && canRevokeAll) {
+     const revokeMod = Store.Cmd || window.Astra.mR.findModule(m => m && typeof m.sendRevokeMsgs === 'function');
+     if (revokeMod) {
+      await revokeMod.sendRevokeMsgs(targetChat, { list, type: 'message' }, { clearMedia });
+      console.log(`[Astra] bulkDelete (revoke) success for ${list.length} msgs in ${remote}`);
+      continue;
+     }
+    }
+
+    // Fallback to local delete
+    const deleteMod = Store.Cmd || window.Astra.mR.findModule(m => m && typeof m.sendDeleteMsgs === 'function');
+    if (deleteMod) {
+     await deleteMod.sendDeleteMsgs(targetChat, { list, type: 'message' }, clearMedia);
+     console.log(`[Astra] bulkDelete (local) success for ${list.length} msgs in ${remote}`);
+    } else {
+     // Last resort: delete one by one
+     for (const m of list) {
+       if (m.delete) await m.delete();
+     }
+    }
+   }
+   return true;
+  } catch (err) {
+   console.error('[Astra] bulkDeleteMessages failed:', err.message);
+   return false;
+  }
+ };
+
  window.Astra.sendReaction = async function(msgId, reaction) {
   const Store = window.Astra.initializeEngine();
   const repo = Store.MsgRepo || Store.Msg;

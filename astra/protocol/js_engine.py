@@ -75,6 +75,7 @@ JS_ENGINE_SOURCE = "\n".join([
  " votePoll: async (p) => pack(await A.votePoll(p.msgId, p.selections)),",
  " editMessage: async (p) => pack(await A.editMessage(p.msgId, p.text || p.body, p.options || {})),",
  " deleteMessage: async (p) => pack(await A.deleteMessage(p.msgId, p.forEveryone !== false, p.clearMedia || false)),",
+ " bulkDeleteMessages: async (p) => pack(await A.bulkDeleteMessages(p.msgIds, p.forEveryone !== false, p.clearMedia || false)),",
  " markSeen: async (p) => pack(await A.markSeen(p.chatId || p)),",
  " react: async (p) => pack(await A.sendReaction(p.msgId, p.emoji || p.reaction)),",
  " fetchMessages: async (p) => pack(await A.fetchMessages(p.chatId, p.searchOptions || {})),",
