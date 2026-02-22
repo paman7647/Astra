@@ -213,23 +213,57 @@ class MediaMethods:
     msg_loc = page.locator(f'div[data-id*="{short_id}"]').first
 
    if await msg_loc.count() > 0:
-    # Strategy A: Right-Click -> "Download" Context Menu
+    # Strategy A: Native Dropdown Chevron Click
+    logger.debug("Looking for dropdown chevron...")
+    await msg_loc.hover() # Hover to reveal the chevron
+    await asyncio.sleep(0.5)
+    
+    # The chevron is usually a span with data-icon="down-context" inside a specific container
+    chevron = msg_loc.locator('span[data-icon="down-context"]').first
+    
+    if await chevron.count() > 0:
+     logger.debug("Found chevron, clicking to open menu...")
+     await chevron.click()
+     await asyncio.sleep(0.5) # Wait for menu to animate in
+     
+     # The menu items are in a list role, find the one with 'Download' text
+     dl_menu_item = page.locator('li').filter(has_text="Download").first
+     
+     if await dl_menu_item.count() > 0:
+      logger.debug("Found 'Download' in dropdown menu, clicking...")
+      async with page.expect_download(timeout=15000) as download_info:
+       await dl_menu_item.click()
+      
+      download = await download_info.value
+      file_path = os.path.join(temp_dir, f"astra_dl_{uuid.uuid4().hex[:8]}_{download.suggested_filename}")
+      await download.save_as(file_path)
+      logger.info(f"Successfully downloaded via UI Dropdown Menu: {file_path}")
+      return os.path.abspath(file_path)
+     else:
+      logger.debug("No 'Download' option in chevron menu.")
+      await page.keyboard.press("Escape")
+    else:
+     logger.debug("Could not find dropdown chevron.")
+
+    # Strategy B: Right-Click Context Menu (Backup)
+    logger.debug("Trying Right-click as backup...")
     await msg_loc.click(button='right')
     await asyncio.sleep(0.5)
     
-    dl_option = page.get_by_text("Download", exact=True).locator("visible=true").last
+    # We look for the list item generically across the page
+    dl_option = page.locator('li').filter(has_text="Download").last
     if await dl_option.count() > 0:
-     logger.debug("Found 'Download' in context menu, clicking...")
+     logger.debug("Found 'Download' via right-click, clicking...")
      async with page.expect_download(timeout=15000) as download_info:
       await dl_option.click()
      
      download = await download_info.value
      file_path = os.path.join(temp_dir, f"astra_dl_{uuid.uuid4().hex[:8]}_{download.suggested_filename}")
      await download.save_as(file_path)
-     logger.info(f"Successfully downloaded via UI Context Menu: {file_path}")
+     logger.info(f"Successfully downloaded via Right-Click Context Menu: {file_path}")
      return os.path.abspath(file_path)
     
-    # Strategy B: Open Media Viewer -> Click "Download" icon
+    # Strategy C: Open Media Viewer -> Click "Download" icon
     await page.keyboard.press("Escape") # Close context menu
     await asyncio.sleep(0.5)
     
