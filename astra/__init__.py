@@ -12,5 +12,5 @@ from .events.filters import Filters
 from .models import User, Chat, Message, ClientStatus
 from .errors import AstraError
 
-__version__ = "0.0.2b25"
+__version__ = "0.0.2b26"
 __all__ = ["Client", "Filters", "User", "Chat", "Message", "AstraError", "ClientStatus"]

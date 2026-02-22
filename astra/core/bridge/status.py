@@ -4,30 +4,13 @@
 # -----------------------------------------------------------
 
 STATUS_CODE = r"""
- (function() {
+(function() {
  window.Astra = window.Astra || {};
 
  window.Astra.sendTextStatus = async (text, options = {}) => {
   console.log(`[Astra] sendTextStatus: ${text.substring(0, 20)}...`);
   const Store = window.Astra.initializeEngine();
 
-  // Strategy 1: Modern StatusUtils (2024+)
-  if (window.Store.StatusUtils && window.Store.StatusUtils.sendStatusTextMsgAction) {
-   try {
-    const statusOptions = {
-     color: 0xff7acca5, // default nice greenish background
-     font: 0,
-     text: text
-    };
-    await window.Store.StatusUtils.sendStatusTextMsgAction(statusOptions);
-    console.log('[Astra] Status posted successfully via modern StatusUtils');
-    return true;
-   } catch (e) {
-    console.warn(`[Astra] Modern StatusUtils text status failed:`, e);
-   }
-  }
-
-  // Strategy 2: Legacy fallback
   const payload = {
    body: text,
    type: 'chat',
@@ -38,6 +21,7 @@ STATUS_CODE = r"""
   };
 
   let StatusV3Action = window.Store.StatusUtils || window.Store.StatusV3Action;
+
   if (!StatusV3Action && window.Astra.mR) {
     StatusV3Action = window.Astra.mR.findModule(m => m && (m.postStatusV3 || m.sendStatusV3 || m.sendTextStatus || m.sendMediaStatus || m.setMyStatus || m.postStatus));
   }
@@ -53,15 +37,17 @@ STATUS_CODE = r"""
 
     if (sendFn) {
      try {
-      console.log(`[Astra] Attempting legacy internal status update using ${sendFn.name || 'anonymous'}...`);
+      console.log(`[Astra] Attempting internal status update using ${sendFn.name || 'anonymous'}...`);
+      // V24 pattern: some modules expect (text, options) others expect (payload)
       const result = await Promise.race([
-       sendFn.call(target, payload.body, payload),
+       sendFn.call(target, payload.body, payload), // Try both string and object
        sendFn.call(target, payload),
        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
       ]);
+      console.log('[Astra] Internal status update successful result:', result);
       return true;
      } catch (e) {
-      console.warn(`[Astra] Legacy internal status update failed: ${e.message}`);
+      console.warn(`[Astra] Internal status update failed or timed out: ${e.message}`);
      }
     }
   }
@@ -73,11 +59,11 @@ STATUS_CODE = r"""
  window.Astra.sendMediaStatus = async (data, type, caption = "", options = {}) => {
   const Store = window.Astra.initializeEngine();
 
-  // 1. Prepare Media (Base64 to Opaque/Blob)
+  // 1. Prepare Media
   let b64 = data;
   if (b64.includes(',')) b64 = b64.split(',')[1];
+
   const mime = type === 'image' ? 'image/jpeg' : 'video/mp4';
-  
   const mediaData = await window.Astra.prepareMedia({
    data: b64,
    mimetype: mime,
@@ -88,34 +74,7 @@ STATUS_CODE = r"""
   const uploadResult = await window.Astra.uploadMedia(mediaData);
   if (!uploadResult || !uploadResult.mediaEntry) throw new Error('Astra: Status media upload failed');
 
-  // Strategy 1: Modern StatusUtils (2024+)
-  if (window.Store.StatusUtils && window.Store.StatusUtils.sendStatusMediaMsgAction) {
-    try {
-        const participant = window.Store.User.getMaybeMePnUser();
-        const msg = new window.Store.Msg.modelClass({
-            type: type,
-            isStatusV3: true,
-            statusV3: true,
-            caption: caption,
-            author: participant,
-            messageSecret: window.crypto.getRandomValues(new Uint8Array(32)),
-            cannotBeRanked: window.Store.StatusUtils.canCheckStatusRankingPosterGating()
-        });
-        
-        const mediaUpdate = d => window.Store.MediaUpdate(d, {
-            ...uploadResult.mediaEntry,
-            filehash: mediaData.filehash
-        });
-
-        await window.Store.StatusUtils.sendStatusMediaMsgAction(msg, mediaUpdate);
-        console.log('[Astra] Media status posted successfully via modern StatusUtils');
-        return true;
-    } catch (e) {
-        console.warn(`[Astra] Modern StatusUtils media status failed:`, e);
-    }
-  }
-
-  // Strategy 2: Legacy fallback
+  // 3. Post Status
   const payload = {
    media: uploadResult.mediaEntry,
    caption: caption,
@@ -125,9 +84,13 @@ STATUS_CODE = r"""
   };
 
   let StatusV3Action = window.Store.StatusUtils || window.Store.StatusV3Action;
+
   if (!StatusV3Action) {
    try {
-    StatusV3Action = window.Astra.mR.findModule('postStatusV3') || window.Astra.mR.findModule('sendStatusV3') || window.Astra.mR.findModule('setMyStatus');
+    // Try aggressive search via Astra mapper
+    StatusV3Action = window.Astra.mR.findModule('postStatusV3') ||
+         window.Astra.mR.findModule('sendStatusV3') ||
+         window.Astra.mR.findModule('setMyStatus');
    } catch (e) {}
   }
 
@@ -147,6 +110,7 @@ STATUS_CODE = r"""
   }
 
   if (!sendFn) throw new Error('Astra: postStatusV3 method not found on module');
+
   return await sendFn.call(target, payload);
  };
  window.Astra.sendTextStatusDOM = async (text) => {
