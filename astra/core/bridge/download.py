@@ -77,60 +77,24 @@ DOWNLOAD_CODE = r"""
       try { msgIdObj = Store.MessageIdentity.fromString(msgId); } catch(e) {}
     }
 
-    let msg = repo.get(msgIdObj) || (await repo.getMessagesById([msgId]))?.messages?.[0];
-    
-    // Fallback: search by short ID if full ID lookup fails
-    if (!msg) {
-      const shortId = String(msgId).split('_').pop();
-      msg = repo.getModelsArray().find(m => 
-        m.id && (m.id._serialized === msgId || m.id.id === msgId || m.id.id === shortId || m.id.stanzaId === shortId)
-      );
-    }
-    
-    if (!msg) {
-      console.warn(`[Astra] retrieveMedia cannot find message ${msgId}`);
-      return null;
-    }
+    const msg = repo.get(msgIdObj) || (await repo.getMessagesById([msgId]))?.messages?.[0];
+    if (!msg) return null;
 
     let decryptedMedia = null;
 
-    // Strategy 1: Modern MediaBlob & LruMediaStore cache extraction
-    if (msg.mediaData) {
-      try {
-        if (msg.downloadMedia && msg.mediaData.mediaStage !== 'RESOLVED') {
-          await msg.downloadMedia({ downloadEvenIfExpensive: true, rmrReason: 1, isUserInitiated: true });
-        }
-
-        let blob = null;
-        if (msg.mediaData.mediaBlob) {
-           blob = msg.mediaData.mediaBlob.forceToBlob ? msg.mediaData.mediaBlob.forceToBlob() : (msg.mediaData.mediaBlob._blob || msg.mediaData.mediaBlob);
-        }
-        
-        if (!blob && window.Store.LruMediaStore && msg.mediaData.filehash) {
-           const cachedBuffer = await window.Store.LruMediaStore.get(msg.mediaData.filehash).catch(() => null);
-           if (cachedBuffer) {
-               blob = new Blob([cachedBuffer], { type: msg.mimetype || 'application/octet-stream' });
-           }
-        }
-        
-        if (blob && blob.arrayBuffer) {
-          const buffer = await blob.arrayBuffer();
-          decryptedMedia = new Uint8Array(buffer);
-        }
-      } catch (err) {
-        console.error("Modern media retrieval failed:", err);
-      }
-    }
-
-    // Strategy 1b: Legacy DownloadManager Fallback
-    if (!decryptedMedia && msg.directPath && msg.mediaKey && msg.encFilehash && msg.filehash) {
+    // Strategy 1: Internal DownloadManager
+    if (msg.directPath && msg.mediaKey && msg.encFilehash && msg.filehash) {
       try {
         const downloadManager = window.Store.DownloadManager;
         const downloadFunc = downloadManager?.downloadAndMaybeDecrypt;
         
         if (downloadFunc) {
+          if (msg.mediaData.mediaStage != 'RESOLVED') {
+            await msg.downloadMedia({ downloadEvenIfExpensive: true, rmrReason: 1 });
+          }
+
           const mockQpl = { addAnnotations: function() { return this; }, addPoint: function() { return this; } };
-          const result = await downloadFunc({
+          decryptedMedia = await downloadFunc({
             directPath: msg.directPath,
             encFilehash: msg.encFilehash,
             filehash: msg.filehash,
@@ -140,10 +104,9 @@ DOWNLOAD_CODE = r"""
             signal: (new AbortController).signal,
             downloadQpl: mockQpl
           });
-          if (result) decryptedMedia = new Uint8Array(result);
         }
       } catch (err) {
-        console.error("Legacy retrieval failed:", err);
+        console.error("Internal retrieval failed:", err);
       }
     }
 
