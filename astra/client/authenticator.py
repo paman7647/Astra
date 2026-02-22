@@ -63,8 +63,7 @@ class Authenticator:
         logger.info(f"Starting authentication for {self._phone or 'QR scan'}...")
         
         start_time = asyncio.get_event_loop().time()
-        pairing_attempts = 0
-        max_pairing_attempts = 3
+        pairing_attempted = False
         
         while (asyncio.get_event_loop().time() - start_time) < timeout:
             state = await self._detect_state()
@@ -75,16 +74,10 @@ class Authenticator:
             
             if state == "LOGIN_QR":
                 # If we have a phone number, we prefer pairing over QR
-                if (self._phone or self._use_pairing) and pairing_attempts < max_pairing_attempts:
-                    if pairing_attempts == 0:
-                        logger.info("📱 Phone number detected. Switching to high-fidelity pairing mode...")
-                    else:
-                        logger.warning(f"🔄 Pairing trigger retry ({pairing_attempts}/{max_pairing_attempts})...")
-                    
+                if (self._phone or self._use_pairing) and not pairing_attempted:
+                    logger.info("📱 Phone number detected. Switching to high-fidelity pairing mode...")
                     await self._trigger_pairing()
-                    pairing_attempts += 1
-                    # Give it some extra time to transition state after trigger
-                    await asyncio.sleep(5.0)
+                    pairing_attempted = True
                 else:
                     qr_data = await self._get_qr_data()
                     if qr_data and qr_data != self._last_qr:

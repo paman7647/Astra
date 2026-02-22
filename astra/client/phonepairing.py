@@ -12,87 +12,53 @@ JS_SCRIPTS = {
         async () => {
             const sleep = (ms) => new Promise(r => setTimeout(r, ms));
             
-            // 1. Enhanced Search Strategy
+            // 1. Find the Link Text
+            // We look for "Link with phone number instead." (partial match)
             const findLink = () => {
-                // Expanded XPath to handle multiple variations and languages
-                const queries = [
-                    "//div[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'link with phone number')]",
-                    "//span[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'link with phone number')]",
-                    "//div[contains(text(), 'phone number')]",
-                    "//span[contains(text(), 'phone number')]",
-                    "[role='button']",
-                    "button"
-                ];
-
-                for (const query of queries) {
-                    try {
-                        let el;
-                        if (query.startsWith('//')) {
-                            const result = document.evaluate(query, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                            el = result.singleNodeValue;
-                        } else {
-                            // Check all elements for specific text if it's a generic selector
-                            const list = Array.from(document.querySelectorAll(query));
-                            el = list.find(e => e.innerText && e.innerText.toLowerCase().includes('link with phone number'));
-                        }
-
-                        if (el && el.offsetParent) return el;
-                    } catch (e) {}
-                }
-                return null;
+                const xpath = "//div[contains(text(), 'Link with phone number instead')] | //span[contains(text(), 'Link with phone number instead')] | //div[contains(text(), 'Link with phone number')] | //span[contains(text(), 'Link with phone number')]";
+                const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                return result.singleNodeValue;
             };
 
-            let linkEl = null;
-            for (let i = 0; i < 15; i++) {
-                linkEl = findLink();
-                if (linkEl) break;
+            let linkParams = null;
+            for (let i = 0; i < 10; i++) {
+                const el = findLink();
+                if (el && el.offsetParent) { // Check visibility
+                   linkParams = el;
+                   break; 
+                }
                 await sleep(500);
             }
 
-            if (!linkEl) {
-                console.error("[Astra] Pairing link not found after retries.");
-                return false;
-            }
+            if (!linkParams) return false;
 
-            console.log("[Astra] Found Pairing Link Candidate:", linkEl);
+            // 2. Click Strategy
+            // We try to find the clickable ancestor or just click the element itself
+            console.log("[Astra] Found Pairing Link:", linkParams);
             
-            // 2. Click Strategy: Find the actual clickable container
-            // Sometimes the text is inside a span inside a div with the actual click handler
-            let target = linkEl;
-            let depth = 0;
-            while (target && depth < 5) {
-                const role = target.getAttribute('role');
-                const tag = target.tagName.toLowerCase();
-                if (role === 'button' || tag === 'button' || target.onclick) {
-                    console.log("[Astra] Target refined to clickable ancestor:", target);
-                    break;
-                }
-                target = target.parentElement;
-                depth++;
-            }
-            if (!target) target = linkEl;
+            // Scroll into view gently
+            linkParams.scrollIntoView({behavior: "smooth", block: "center"});
+            await sleep(500);
 
-            // 3. Human-like Click Sequence
-            const trigger = (type) => {
-                const rect = target.getBoundingClientRect();
-                const x = rect.left + rect.width / 2;
-                const y = rect.top + rect.height / 2;
-                target.dispatchEvent(new MouseEvent(type, {
-                    view: window, bubbles: true, cancelable: true, clientX: x, clientY: y
-                }));
-            };
-
-            target.scrollIntoView({behavior: "instant", block: "center"});
-            await sleep(100);
-
-            trigger('mousedown');
-            await sleep(50);
-            trigger('mouseup');
-            await sleep(50);
-            trigger('click');
+            // Coordinate Click (Most Robust for React)
+            const rect = linkParams.getBoundingClientRect();
+            const x = rect.left + (rect.width / 2);
+            const y = rect.top + (rect.height / 2);
             
-            // Native fallback
-            if (typeof target.click === 'function') target.click();
+            const clickEvent = new MouseEvent('click', {
+                view: window,
+                bubbles: true,
+                cancelable: true,
+                clientX: x,
+                clientY: y
+            });
+            
+            // Dispatch specifically to the element
+            linkParams.dispatchEvent(clickEvent);
+            
+            // Also try standard click() on it and parent
+            linkParams.click();
+            if (linkParams.parentElement) linkParams.parentElement.click();
 
             return true;
         }
@@ -240,7 +206,7 @@ JS_SCRIPTS = {
                             .find(el => el.innerText && el.innerText.includes(text));
             };
 
-            // 1. High-fidelity engine check (Priority)
+            // 1. High-fidelity engine check
             if (window.Store && window.Store.Stream) {
                 const s = window.Store.Stream.state || (window.Store.Stream.Stream && window.Store.Stream.Stream.state);
                 const m = window.Store.Stream.mode || (window.Store.Stream.Stream && window.Store.Stream.Stream.mode);
@@ -253,20 +219,21 @@ JS_SCRIPTS = {
             if (check('[data-testid="startup-loading-screen"]')) return "LOADING";
 
             // 3. Auth Priority: ERRORS > CODE > PHONE > QR
+            
+            // Rate Limits / Errors (Prioritized!)
+            // The dialog checks for specific text that appears when blocked
             if (findByText("You've guessed too many times") || findByText('Too many attempts')) return "RATE_LIMITED";
 
             if (check('[data-link-code]') || findByText('Enter code on phone')) return "LOGIN_CODE";
             
-            // Phone input check is now more aggressive to override QR detection during transition
             const isPhoneInput = check('input[aria-label*="phone number"]') || 
                                  check('input[aria-label*="Type your phone number"]') ||
                                  check('input[type="tel"]') || 
-                                 (check('input[type="text"]') && findByText('phone number'));
+                                 check('input[type="text"]') && findByText('Enter phone number');
 
             if (isPhoneInput) return "LOGIN_PHONE";
 
             if (check('canvas') || check('[data-testid="qrcode"]') || check('[data-ref]')) return "LOGIN_QR";
-            
             if (findByText('Scan the QR code') || findByText('Link with phone number') || findByText('Log in with phone number') || findByText('Link with phone number instead')) return "LOGIN_QR";
 
             return "UNKNOWN";
