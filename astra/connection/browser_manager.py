@@ -156,6 +156,7 @@ class BrowserController:
      '--disable-web-security',
      '--disable-features=IsolateOrigins,site-per-process',
      '--disable-accelerated-2d-canvas',
+     '--disable-software-rasterizer',
      '--no-first-run',
      '--no-zygote',
      '--disable-gpu',

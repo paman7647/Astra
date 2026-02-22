@@ -1,4 +1,3 @@
-.. _migration:
 
 Migration Guide
 ===============
@@ -70,7 +69,7 @@ The recommended pattern is now ``async with``:
  + async with Client(session_id="bot") as client:
  +  # ... your code ...
 
-From v0.0.2b5 through v0.0.2b10
+From v0.0.2b5 through v0.0.2b11
 ------------------------------
 
 These rapid beta releases focused on stability, but a few API

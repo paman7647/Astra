@@ -53,12 +53,15 @@ JS_SCRIPTS = {
                 clientY: y
             });
             
-            // Dispatch specifically to the element
+            // Dispatch events specifically
+            linkParams.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+            linkParams.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+            await sleep(100);
+            linkParams.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
             linkParams.dispatchEvent(clickEvent);
             
-            // Also try standard click() on it and parent
+            // Also try standard click()
             linkParams.click();
-            if (linkParams.parentElement) linkParams.parentElement.click();
 
             return true;
         }
@@ -224,14 +227,17 @@ JS_SCRIPTS = {
             // The dialog checks for specific text that appears when blocked
             if (findByText("You've guessed too many times") || findByText('Too many attempts')) return "RATE_LIMITED";
 
-            if (check('[data-link-code]') || findByText('Enter code on phone')) return "LOGIN_CODE";
-            
             const isPhoneInput = check('input[aria-label*="phone number"]') || 
                                  check('input[aria-label*="Type your phone number"]') ||
                                  check('input[type="tel"]') || 
-                                 check('input[type="text"]') && findByText('Enter phone number');
+                                 check('input[data-testid="phone-number-input"]') ||
+                                 (check('input[type="text"]') && findByText('phone number'));
 
             if (isPhoneInput) return "LOGIN_PHONE";
+
+            if (check('[data-link-code]') || findByText('Enter code on phone') || findByText('Link with phone number')) {
+                if (check('[data-link-code]')) return "LOGIN_CODE";
+            }
 
             if (check('canvas') || check('[data-testid="qrcode"]') || check('[data-ref]')) return "LOGIN_QR";
             if (findByText('Scan the QR code') || findByText('Link with phone number') || findByText('Log in with phone number') || findByText('Link with phone number instead')) return "LOGIN_QR";

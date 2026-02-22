@@ -1,0 +1,112 @@
+2026-02-22 16:32:40,018 - [INFO] - Astra.SessionStore - SessionStore opened: /Users/paman7647/ASTRAUB/astra_userbot_test/.astra_sessions/X/astra_cache.db
+2026-02-22 16:32:40,018 - [INFO] - AstraBot - ✅ Authenticator patched for Web Dashboard support.
+2026-02-22 16:32:40,018 - [DEBUG] - Astra.Events - Registered listener 'on_ready' for event 'ready'
+2026-02-22 16:32:40,191 - [DEBUG] - Astra.Events - Registered listener 'pm_protection_listener' for event 'message'
+2026-02-22 16:32:40,191 - [INFO] - Astra - Initializing [X]...
+2026-02-22 16:32:40,191 - [INFO] - Astra.Status - Client state changed: OFFLINE -> STARTING
+2026-02-22 16:32:40,226 - [INFO] - Astra.Browser - Starting browser engine...
+2026-02-22 16:32:41,461 - [INFO] - Astra.Browser - Browser is online and ready.
+2026-02-22 16:32:41,478 - [INFO] - Astra - Browser cache (SW + CacheStorage) cleared.
+2026-02-22 16:32:41,478 - [INFO] - Astra - Establishing engine bridge...
+2026-02-22 16:32:41,478 - [INFO] - Astra.Protocol - Connecting Protocol Bridge...
+2026-02-22 16:32:41,481 - [INFO] - Astra.Protocol - Bridge uplink exposed successfully.
+2026-02-22 16:32:41,506 - [DEBUG] - Astra.Browser - JS: [Astra] Injection start...
+2026-02-22 16:32:41,506 - [DEBUG] - Astra.Browser - JS: Astra Media Bridge v2 Loaded
+2026-02-22 16:32:41,507 - [INFO] - Astra.Protocol - [Bridge] Astra Media Bridge v2 Loaded
+2026-02-22 16:32:41,508 - [DEBUG] - Astra.Browser - JS: [Astra] IDB Cache Bridge ready.
+2026-02-22 16:32:41,509 - [INFO] - Astra.Protocol - [Bridge] [Astra] IDB Cache Bridge ready.
+2026-02-22 16:32:41,509 - [DEBUG] - Astra.Browser - JS: [Astra] High-Level Engine V24 Ready.
+2026-02-22 16:32:41,509 - [INFO] - Astra.Protocol - [Bridge] [Astra] High-Level Engine V24 Ready.
+2026-02-22 16:32:41,511 - [DEBUG] - Astra.Browser - JS: [Astra] Bridge uplink established.
+2026-02-22 16:32:41,512 - [INFO] - Astra.Protocol - [Bridge] [Astra] Bridge uplink established.
+2026-02-22 16:32:41,512 - [INFO] - Astra - Connecting to WhatsApp...
+2026-02-22 16:32:43,161 - [DEBUG] - Astra.Browser - JS: [Astra] Injection start...
+2026-02-22 16:32:43,163 - [DEBUG] - Astra.Browser - JS: Astra Media Bridge v2 Loaded
+2026-02-22 16:32:43,163 - [INFO] - Astra.Protocol - [Bridge] Astra Media Bridge v2 Loaded
+2026-02-22 16:32:43,164 - [DEBUG] - Astra.Browser - JS: [Astra] IDB Cache Bridge ready.
+2026-02-22 16:32:43,164 - [INFO] - Astra.Protocol - [Bridge] [Astra] IDB Cache Bridge ready.
+2026-02-22 16:32:43,167 - [DEBUG] - Astra.Browser - JS: [Astra] High-Level Engine V24 Ready.
+2026-02-22 16:32:43,167 - [INFO] - Astra.Protocol - [Bridge] [Astra] High-Level Engine V24 Ready.
+2026-02-22 16:32:43,169 - [DEBUG] - Astra.Browser - JS: [Astra] Bridge uplink established.
+2026-02-22 16:32:43,169 - [INFO] - Astra.Protocol - [Bridge] [Astra] Bridge uplink established.
+2026-02-22 16:32:43,523 - [INFO] - Astra.Status - Client state changed: STARTING -> AUTHENTICATING
+2026-02-22 16:32:43,523 - [INFO] - Astra.Auth - Starting authentication for 917303985153...
+2026-02-22 16:32:43,525 - [DEBUG] - Astra.Auth - Still waiting for login UI to stabilize...
+2026-02-22 16:32:45,534 - [INFO] - Astra.Auth - 📱 Phone number detected. Switching to high-fidelity pairing mode...
+2026-02-22 16:32:45,546 - [DEBUG] - Astra.Browser - JS: [Astra] Found Pairing Link: JSHandle@node
+2026-02-22 16:32:45,546 - [INFO] - Astra.Protocol - [Bridge] [Astra] Found Pairing Link: [object HTMLDivElement]
+2026-02-22 16:32:48,064 - [INFO] - Astra.Auth - 💾 Injecting phone number: 917303985153
+2026-02-22 16:32:48,064 - [INFO] - Astra.Auth - Injecting 917303985153 via robust JS engine...
+2026-02-22 16:32:48,070 - [DEBUG] - Astra.Browser - JS: [Astra] Formatting: 917303985153 -> +917303985153
+2026-02-22 16:32:48,070 - [INFO] - Astra.Protocol - [Bridge] [Astra] Formatting: 917303985153 -> +917303985153
+2026-02-22 16:32:48,900 - [DEBUG] - Astra.Browser - JS: [Astra] Clicking Next button: JSHandle@node
+2026-02-22 16:32:48,902 - [INFO] - Astra.Protocol - [Bridge] [Astra] Clicking Next button: [object HTMLButtonElement]
+2026-02-22 16:32:51,206 - [DEBUG] - Astra.Browser - JS: [Astra] Core aliases mapped.
+2026-02-22 16:32:51,206 - [INFO] - Astra.Protocol - [Bridge] [Astra] Core aliases mapped.
+2026-02-22 16:32:51,207 - [DEBUG] - Astra.Browser - JS: [Astra] AuthStore initialized.
+2026-02-22 16:32:51,207 - [INFO] - Astra.Protocol - [Bridge] [Astra] AuthStore initialized.
+2026-02-22 16:32:51,208 - [DEBUG] - Astra.Browser - JS: [Astra] Hardcoded match for: UserConstructor (WAWebWid)
+2026-02-22 16:32:51,208 - [INFO] - Astra.Protocol - [Bridge] [Astra] Hardcoded match for: UserConstructor (WAWebWid)
+2026-02-22 16:32:51,208 - [DEBUG] - Astra.Browser - JS: [Astra] Hardcoded match for: SendClear (WAWebChatClearBridge)
+2026-02-22 16:32:51,209 - [INFO] - Astra.Protocol - [Bridge] [Astra] Hardcoded match for: SendClear (WAWebChatClearBridge)
+2026-02-22 16:32:51,209 - [DEBUG] - Astra.Browser - JS: [Astra] Hardcoded match for: SendDelete (WAWebDeleteChatAction)
+2026-02-22 16:32:51,209 - [INFO] - Astra.Protocol - [Bridge] [Astra] Hardcoded match for: SendDelete (WAWebDeleteChatAction)
+2026-02-22 16:32:51,210 - [DEBUG] - Astra.Browser - JS: [Astra] Hardcoded match for: UploadUtils (WAWebUploadManager)
+2026-02-22 16:32:51,210 - [INFO] - Astra.Protocol - [Bridge] [Astra] Hardcoded match for: UploadUtils (WAWebUploadManager)
+2026-02-22 16:32:51,210 - [DEBUG] - Astra.Browser - JS: [Astra] Hardcoded modules scan complete.
+2026-02-22 16:32:51,210 - [INFO] - Astra.Protocol - [Bridge] [Astra] Hardcoded modules scan complete.
+2026-02-22 16:32:51,211 - [DEBUG] - Astra.Browser - JS: [Astra] Chat already present in Store.
+2026-02-22 16:32:51,211 - [INFO] - Astra.Protocol - [Bridge] [Astra] Chat already present in Store.
+2026-02-22 16:32:51,212 - [DEBUG] - Astra.Browser - JS: [Astra] Msg already present in Store.
+2026-02-22 16:32:51,212 - [INFO] - Astra.Protocol - [Bridge] [Astra] Msg already present in Store.
+2026-02-22 16:32:51,212 - [DEBUG] - Astra.Browser - JS: [Astra] Contact already present in Store.
+2026-02-22 16:32:51,212 - [INFO] - Astra.Protocol - [Bridge] [Astra] Contact already present in Store.
+2026-02-22 16:32:51,215 - [DEBUG] - Astra.Browser - JS: [Astra] SendMessage already present in Store.
+2026-02-22 16:32:51,215 - [INFO] - Astra.Protocol - [Bridge] [Astra] SendMessage already present in Store.
+2026-02-22 16:32:51,215 - [DEBUG] - Astra.Browser - JS: [Astra] msgFindQuery already present in Store.
+2026-02-22 16:32:51,215 - [INFO] - Astra.Protocol - [Bridge] [Astra] msgFindQuery already present in Store.
+2026-02-22 16:32:51,216 - [DEBUG] - Astra.Browser - JS: [Astra] MsgKey already present in Store.
+2026-02-22 16:32:51,216 - [INFO] - Astra.Protocol - [Bridge] [Astra] MsgKey already present in Store.
+2026-02-22 16:32:51,217 - [DEBUG] - Astra.Browser - JS: [Astra] Conn already present in Store.
+2026-02-22 16:32:51,217 - [INFO] - Astra.Protocol - [Bridge] [Astra] Conn already present in Store.
+2026-02-22 16:32:51,217 - [DEBUG] - Astra.Browser - JS: [Astra] User already present in Store.
+2026-02-22 16:32:51,217 - [INFO] - Astra.Protocol - [Bridge] [Astra] User already present in Store.
+2026-02-22 16:32:51,218 - [DEBUG] - Astra.Browser - JS: [Astra] WidFactory already present in Store.
+2026-02-22 16:32:51,218 - [INFO] - Astra.Protocol - [Bridge] [Astra] WidFactory already present in Store.
+2026-02-22 16:32:51,219 - [DEBUG] - Astra.Browser - JS: [Astra] GroupCreate already present in Store.
+2026-02-22 16:32:51,219 - [INFO] - Astra.Protocol - [Bridge] [Astra] GroupCreate already present in Store.
+2026-02-22 16:32:51,220 - [DEBUG] - Astra.Browser - JS: [Astra] ProfilePicThumb already present in Store.
+2026-02-22 16:32:51,220 - [INFO] - Astra.Protocol - [Bridge] [Astra] ProfilePicThumb already present in Store.
+2026-02-22 16:32:51,220 - [DEBUG] - Astra.Browser - JS: [Astra] Heuristic miss: StatusV3Action
+2026-02-22 16:32:51,220 - [INFO] - Astra.Protocol - [Bridge] [Astra] Heuristic miss: StatusV3Action
+2026-02-22 16:32:51,221 - [DEBUG] - Astra.Browser - JS: [Astra] StatusUtils already present in Store.
+2026-02-22 16:32:51,221 - [INFO] - Astra.Protocol - [Bridge] [Astra] StatusUtils already present in Store.
+2026-02-22 16:32:51,221 - [DEBUG] - Astra.Browser - JS: [Astra] Heuristic miss: Settings
+2026-02-22 16:32:51,222 - [INFO] - Astra.Protocol - [Bridge] [Astra] Heuristic miss: Settings
+2026-02-22 16:32:51,222 - [DEBUG] - Astra.Browser - JS: [Astra] Heuristic miss: PrivacySettings
+2026-02-22 16:32:51,222 - [INFO] - Astra.Protocol - [Bridge] [Astra] Heuristic miss: PrivacySettings
+2026-02-22 16:32:51,223 - [DEBUG] - Astra.Browser - JS: [Astra] Heuristic miss: Polls
+2026-02-22 16:32:51,223 - [INFO] - Astra.Protocol - [Bridge] [Astra] Heuristic miss: Polls
+2026-02-22 16:32:51,223 - [DEBUG] - Astra.Browser - JS: [Astra] Heuristic miss: BlockAction
+2026-02-22 16:32:51,223 - [INFO] - Astra.Protocol - [Bridge] [Astra] Heuristic miss: BlockAction
+2026-02-22 16:32:51,224 - [DEBUG] - Astra.Browser - JS: [Astra] Heuristic miss: AccountUtils
+2026-02-22 16:32:51,224 - [INFO] - Astra.Protocol - [Bridge] [Astra] Heuristic miss: AccountUtils
+2026-02-22 16:32:51,225 - [DEBUG] - Astra.Browser - JS: [Astra] GroupInvite already present in Store.
+2026-02-22 16:32:51,225 - [INFO] - Astra.Protocol - [Bridge] [Astra] GroupInvite already present in Store.
+2026-02-22 16:32:51,225 - [DEBUG] - Astra.Browser - JS: [Astra] Heuristic miss: GroupInviteV4
+2026-02-22 16:32:51,225 - [INFO] - Astra.Protocol - [Bridge] [Astra] Heuristic miss: GroupInviteV4
+2026-02-22 16:32:51,226 - [DEBUG] - Astra.Browser - JS: [Astra] Heuristic miss: WAGroupInviteQuery
+2026-02-22 16:32:51,226 - [INFO] - Astra.Protocol - [Bridge] [Astra] Heuristic miss: WAGroupInviteQuery
+2026-02-22 16:32:51,227 - [DEBUG] - Astra.Browser - JS: [Astra] GroupParticipants already present in Store.
+2026-02-22 16:32:51,227 - [INFO] - Astra.Protocol - [Bridge] [Astra] GroupParticipants already present in Store.
+2026-02-22 16:32:51,227 - [DEBUG] - Astra.Browser - JS: [Astra] GroupUtils already present in Store.
+2026-02-22 16:32:51,227 - [INFO] - Astra.Protocol - [Bridge] [Astra] GroupUtils already present in Store.
+2026-02-22 16:32:51,228 - [DEBUG] - Astra.Browser - JS: [Astra] Attempting QR reconstruction for ref: 2@fiA9DEqO...
+2026-02-22 16:32:51,228 - [INFO] - Astra.Protocol - [Bridge] [Astra] Attempting QR reconstruction for ref: 2@fiA9DEqO...
+2026-02-22 16:32:51,228 - [DEBUG] - Astra.Browser - JS: [Astra] Message pipeline hooked (Elite V24).
+2026-02-22 16:32:51,229 - [INFO] - Astra.Protocol - [Bridge] [Astra] Message pipeline hooked (Elite V24).
+2026-02-22 16:32:51,230 - [DEBUG] - Astra.Browser - JS: [Astra] QR SUCCESS! Constructed full string (Length: 239)
+2026-02-22 16:32:51,230 - [INFO] - Astra.Protocol - [Bridge] [Astra] QR SUCCESS! Constructed full string (Length: 239)
+2026-02-22 16:32:54,694 - [INFO] - AstraBot - Received exit signal SIGINT...
+2026-02-22 16:32:54,695 - [INFO] - AstraBot - Closing client session...
+2026-02-22 16:32:54,697 - [INFO] - AstraBot - Astra Userbot stopped. Goodbye!

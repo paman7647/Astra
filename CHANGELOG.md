@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.2b11] - 2026-02-22
+### Added
+- **proot-distro Optimization**: Added `--disable-software-rasterizer` and forced hardware acceleration flags for better performance in emulated Linux environments.
+- **Persistent Pairing Retry**: Implemented an automated retry loop for phone pairing to handle resource load delays (400 errors).
+### Fixed
+- **State Transition Race Conditions**: Improved `DETECT_STATE` to prioritize phone inputs over stale QR canvases.
+
 ## [0.0.2b10] - 2026-02-22
 ### Fixed
 - **PyPI Release Consistency**: Finalized version string synchronization across documentation, code, and distribution metadata to resolve installation ambiguities.
