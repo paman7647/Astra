@@ -148,6 +148,55 @@ class MediaMethods:
   except Exception as e:
    logger.info(f"Download failed for {message_id}: {e}")
    raise e
+
+ async def download(self, message_id: Any) -> Optional[str]:
+  """
+  Downloads media and saves it to a temporary file.
+  Returns: Absolute path to the saved file.
+  """
+  try:
+   from ..models.message import Message
+   
+   # 1. Normalize Message ID
+   mid = message_id.id if isinstance(message_id, Message) else str(message_id)
+   
+   # 2. Get Media Data (Base64 or Chunked)
+   # We use the existing download_media logic but ensure we get the full buffer
+   # Note: download_media might return a very large string
+   data_b64 = await self.download_media(mid)
+   if not data_b64:
+    return None
+
+   # 3. Save to Temp File
+   import tempfile
+   import uuid
+   
+   # Ensure temp directory exists in current working directory or system temp
+   temp_dir = os.path.join(os.getcwd(), "temp")
+   if not os.path.exists(temp_dir):
+    os.makedirs(temp_dir, exist_ok=True)
+
+   # Generate a unique path
+   # We try to guess the extension if message_id is a Message object
+   ext = "media"
+   if isinstance(message_id, Message):
+    mtype = str(message_id.type).split('.')[-1].lower()
+    if mtype == 'image': ext = 'jpg'
+    elif mtype == 'video': ext = 'mp4'
+    elif mtype == 'audio': ext = 'mp3'
+    elif mtype == 'sticker': ext = 'webp'
+   
+   file_path = os.path.join(temp_dir, f"astra_{uuid.uuid4().hex[:8]}.{ext}")
+   
+   with open(file_path, "wb") as f:
+    f.write(base64.b64decode(data_b64))
+   
+   logger.info(f"Media saved to: {file_path}")
+   return os.path.abspath(file_path)
+
+  except Exception as e:
+   logger.error(f"Media download/save failed: {e}")
+   return None
   
  async def send_image(self, chat_id: str, file_path: str, **kwargs) -> Any:
   """Sends an image file."""

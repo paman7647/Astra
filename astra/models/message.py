@@ -230,5 +230,16 @@ class Message:
    raise RuntimeError("Message object is not bound to a client.")
   return await self._client.chat.delete_message(self.id, everyone=for_everyone)
 
+ async def download(self) -> Optional[str]:
+  """
+  Downloads the media attached to this message and saves it to a temporary file.
+  Returns: Absolute path to the saved file or None if download fails or no media is present.
+  """
+  if not self._client:
+   raise RuntimeError("Message object is not bound to a client.")
+  if not self.is_media:
+   return None
+  return await self._client.media.download(self)
+
  def __repr__(self) -> str:
   return f"<Message id={self.id} from={self.sender or self.chat_id} type={self.type.name}>"
