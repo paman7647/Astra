@@ -218,7 +218,7 @@ class Message:
   if not self._client:
    raise RuntimeError("Message object is not bound to a client.")
   # Give it a small sleep so we don't hit rate limits when spamming edits
-  time.sleep(0.5)
+  await asyncio.sleep(0.5)
   return await self._client.chat.edit_message(self.id, text)
 
 
