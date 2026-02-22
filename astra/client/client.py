@@ -43,8 +43,9 @@ from .methods.chat import ChatMethods
 from .methods.group import GroupMethods
 from .methods.media import MediaMethods
 from .methods.account import AccountMethods
+from ..utils.logger import setup_logging
 
-logger = logging.getLogger("Astra")
+logger = logging.getLogger("Client")
 
 class Client:
  """
@@ -75,6 +76,9 @@ class Client:
    log_level: Sensitivity of the internal logger.
    show_banner: Whether to print the Astra banner on startup.
   """
+  # 0. Initialize Beauty
+  setup_logging(log_level)
+
   # 1. Configuration
   self.session_id = session_id
   self.session_path = os.path.join(SESSION_STORAGE_PATH, session_id)
@@ -127,6 +131,9 @@ class Client:
   # 7. Session Store (SQLite cache)
   self.store = SessionStore(self.session_path)
   self.store.open()
+
+  # 7b. Wire DB recovery to Browser (Parallel session restoration)
+  self.browser.get_db_state_callback = self.store.get_session_state
 
  # --- Context Manager ---
 
@@ -211,17 +218,18 @@ class Client:
    if self._show_banner:
     self._print_banner()
 
-   logger.info(f"Initializing [{self.session_id}]...")
+   logger.info(f"Setting up {self.session_id}...")
    self.status.transition_to(ClientStatus.STARTING)
 
    # 1. Launch Browser
    page = await self.browser.start()
 
-   # 1b. Clear stale browser caches (prevents WA version mismatch stalls)
-   await self._clear_browser_cache(page)
+   # 1b. Clear stale browser caches if requested
+   # We disable this by default to preserve session tokens (SW)
+   # await self._clear_browser_cache(page)
 
    # 2. Establish Bridge (Pre-auth)
-   logger.info("Establishing engine bridge...")
+   logger.debug("Connecting to engine...")
    self.bridge._page = page
    await self.bridge.connect()
 
@@ -229,7 +237,12 @@ class Client:
    self.bridge.set_event_handler(self.dispatcher.dispatch)
 
    # 3. Navigate to WhatsApp
-   logger.info("Connecting to WhatsApp...")
+   try:
+        wa_ip = socket.gethostbyname("web.whatsapp.com")
+        logger.info(f"Connecting to WhatsApp [{wa_ip}]...")
+   except Exception:
+        logger.info("Connecting to WhatsApp...")
+   
    await page.goto(WHATSAPP_URL, wait_until="domcontentloaded")
 
    # 4. Handle Authentication
@@ -262,7 +275,7 @@ class Client:
    # Notify listeners
    self.events.emit("ready")
 
-   logger.info("Client is ready.")
+   logger.info("Client online.")
 
   except Exception as e:
    logger.error(f"Startup failed: {e}", exc_info=True)
@@ -277,7 +290,7 @@ class Client:
   if self._disconnecting:
    return
   self._disconnecting = True
-  logger.info("Shutting down...")
+  logger.info("Stopping...")
   self.status.transition_to(ClientStatus.SHUTTING_DOWN)
 
   # Stop sync engine
@@ -290,14 +303,14 @@ class Client:
   self._ready_event.clear()
 
   self.status.transition_to(ClientStatus.OFFLINE)
-  logger.info("Offline.")
+  logger.info("Stopped.")
 
  async def restart(self):
   """
   # Restart engine.
   Cleans up browser, processes, and locks before starting fresh.
   """
-  logger.warning("Astra Engine restart initiated...")
+  logger.info("Restarting engine...")
   await self.stop()
   self._disconnecting = False # Reset for restart
   await asyncio.sleep(2)
@@ -666,12 +679,12 @@ class Client:
    chats = await page.evaluate("window.Astra.idb.getChats(200)")
    if chats:
     self.store.upsert_chats(chats)
-    logger.info(f"Cache populated: {len(chats)} chats")
+    logger.debug(f"Cache populated: {len(chats)} chats")
 
    contacts = await page.evaluate("window.Astra.idb.getContacts(500)")
    if contacts:
     self.store.upsert_contacts(contacts)
-    logger.info(f"Cache populated: {len(contacts)} contacts")
+    logger.debug(f"Cache populated: {len(contacts)} contacts")
   except Exception as exc:
    logger.debug(f"Initial cache population skipped: {exc}")
 

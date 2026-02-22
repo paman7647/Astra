@@ -13,7 +13,7 @@ from typing import Any, Dict, Optional
 from ..models import Message, Chat, User
 from ..models.chat import GroupInfo, GroupParticipant, JID
 
-logger = logging.getLogger("Astra.Transformer")
+logger = logging.getLogger("Engine")
 
 class DataTransformer:
  """

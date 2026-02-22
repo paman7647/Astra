@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 project = 'Astra Engine'
 copyright = '2026, Aman Kumar Pandey'
 author = 'Aman Kumar Pandey'
-release = '0.0.2b10'
+release = '0.0.2b16'
 version = '0.0.1'
 
 # -- Extensions --------------------------------------------------------

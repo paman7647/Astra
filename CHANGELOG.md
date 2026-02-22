@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.2b15] - 2026-02-22
+### Fixed
+- **Performance**: Replaced synchronous `time.sleep` with `asyncio.sleep` in several core methods (`Message.edit`, `ChatMethods.edit_message`). This fixes the "Cannot edit message" error (E3006) by ensuring the event loop is never blocked during message acknowledgement.
+- **Reliability**: Updated `.ping` command to use `waitForSend=True`, ensuring the base message is fully acknowledged by WhatsApp before the second result-edit is attempted.
+
+## [0.0.2b14] - 2026-02-22
+### Fixed
+- **Performance**: Replaced synchronous `time.sleep` with `asyncio.sleep` in several core methods (Pre-release candidate).
+
+## [0.0.2b13] - 2026-02-22
+### Changed
+- **Logging Supremacy**: Suppressed noisy `PROTOCOL` and internal bridge logs by moving them to the `DEBUG` level. This ensures the console remains clean for production use while maintaining detailed diagnostics in debug mode.
+
+## [0.0.2b12] - 2026-02-22
+### Changed
+- **Pairing UX**: Increased the phone pairing retry interval from 10s to 60s to give users ample time to input the code.
+- **Log Noise Reduction**: Reduced internal bridge protocol logs from INFO to DEBUG level to provide a cleaner console experience.
+
+## [0.0.2b11] - 2026-02-22
+### Added
+- **proot-distro Optimization**: Added `--disable-software-rasterizer` and forced hardware acceleration flags for better performance in emulated Linux environments.
+- **Persistent Pairing Retry**: Implemented an automated retry loop for phone pairing to handle resource load delays (400 errors).
+### Fixed
+- **State Transition Race Conditions**: Improved `DETECT_STATE` to prioritize phone inputs over stale QR canvases.
+
 ## [0.0.2b10] - 2026-02-22
 ### Fixed
 - **PyPI Release Consistency**: Finalized version string synchronization across documentation, code, and distribution metadata to resolve installation ambiguities.

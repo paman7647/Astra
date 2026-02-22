@@ -18,7 +18,7 @@ from ...models.chat import GroupInfo
 if TYPE_CHECKING:
  from ..client import Client
 
-logger = logging.getLogger("Astra.Group")
+logger = logging.getLogger("Group")
 
 class GroupMethods:
  """
@@ -38,6 +38,7 @@ class GroupMethods:
   try:
    return await self._client.api.create_group(title, participants)
   except Exception as e:
+   logger.info(f"Failed to create group '{title}': {e}")
    raise GroupCreateError(f"Failed to create group '{title}': {e}", cause=e) from e
 
  async def add_members(self, group_id: str, members: List[str]) -> bool:
@@ -50,6 +51,7 @@ class GroupMethods:
   try:
    return await self._client.api.add_members(group_id, members)
   except Exception as e:
+   logger.info(f"Failed to add members to {group_id}: {e}")
    raise GroupMemberError(f"Failed to add members to {group_id}: {e}", code=ErrorCode.GRP_ADD_FAILED) from e
 
  async def add_participants(self, group_id: str, members: List[str]) -> bool:
@@ -66,6 +68,7 @@ class GroupMethods:
   try:
    return await self._client.api.remove_members(group_id, members)
   except Exception as e:
+   logger.info(f"Failed to remove members from {group_id}: {e}")
    raise GroupMemberError(f"Failed to remove members from {group_id}: {e}", code=ErrorCode.GRP_REMOVE_FAILED) from e
 
  async def remove_participants(self, group_id: str, members: List[str]) -> bool:

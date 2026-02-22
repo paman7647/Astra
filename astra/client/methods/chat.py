@@ -11,6 +11,7 @@ chat operations like sending messages, polls, and media.
 """
 
 import logging
+import asyncio
 import time
 from typing import Optional, List, Any, Dict, TYPE_CHECKING, Union
 from ...models import Message, Chat
@@ -24,7 +25,7 @@ from ...errors import (
 if TYPE_CHECKING:
  from ..client import Client
 
-logger = logging.getLogger("Astra.Chat")
+logger = logging.getLogger("Chat")
 
 class ChatMethods:
  """
@@ -55,6 +56,7 @@ class ChatMethods:
   try:
    return await self._client.api.send_text(chat_id, text, options=options)
   except Exception as e:
+   logger.info(f"Failed to send message to {chat_id}: {e}")
    raise MessageSendError(f"Failed to send message to {chat_id}: {e}", cause=e) from e
 
  async def send_poll(self, chat_id: str, question: str, options: List[str], poll_options: Optional[Dict[str, Any]] = None) -> Message:
@@ -67,6 +69,7 @@ class ChatMethods:
   try:
    return await self._client.api.send_poll(chat_id, question, options, poll_options=poll_options)
   except Exception as e:
+   logger.info(f"Failed to create poll in {chat_id}: {e}")
    raise PollError(f"Failed to create poll in {chat_id}: {e}", cause=e) from e
 
  async def delete_message(self, message_id: str, everyone: bool = True) -> bool:
@@ -79,6 +82,7 @@ class ChatMethods:
   try:
    return await self._client.api.delete_message(message_id, for_everyone=everyone)
   except Exception as e:
+   logger.info(f"Failed to delete {message_id}: {e}")
    raise MessageDeleteError(f"Failed to delete {message_id}: {e}") from e
 
  async def bulk_delete(self, message_ids: List[str], everyone: bool = True) -> bool:
@@ -105,7 +109,7 @@ class ChatMethods:
  async def edit_message(self, message_id: str, text: str) -> bool:
   try:
    # Mandatory 0.5s delay to keep message edits stable and avoid rate limits
-   time.sleep(0.5)
+   await asyncio.sleep(0.5)
    return await self._client.api.edit_message(message_id, text)
   except Exception as e:
    raise MessageEditError(f"Failed to edit {message_id}: {e}") from e

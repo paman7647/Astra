@@ -16,7 +16,7 @@ from ..models import Message
 if TYPE_CHECKING:
  from .client import Client
 
-logger = logging.getLogger("Astra.Conversation")
+logger = logging.getLogger("Chat")
 
 class Conversation:
  """

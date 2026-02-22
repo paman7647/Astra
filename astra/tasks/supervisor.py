@@ -8,7 +8,7 @@ import logging
 from typing import Dict, Any, Coroutine, Optional, Set, Callable, List
 
 
-logger = logging.getLogger("Astra.Tasks")
+logger = logging.getLogger("Supervisor")
 
 
 class TaskSupervisor:

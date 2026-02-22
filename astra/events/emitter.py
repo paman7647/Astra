@@ -12,7 +12,7 @@ import asyncio
 import logging
 from typing import Callable, Any, Dict, List, Optional, Union
 
-logger = logging.getLogger("Astra.Events")
+logger = logging.getLogger("Events")
 
 class EventEmitter:
  """

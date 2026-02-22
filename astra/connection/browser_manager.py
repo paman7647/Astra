@@ -26,7 +26,7 @@ from ..errors import (
  BrowserStartError, BrowserCrashError,
 )
 
-logger = logging.getLogger("Astra.Browser")
+logger = logging.getLogger("Browser")
 
 class BrowserController:
  """
@@ -134,11 +134,11 @@ class BrowserController:
    if os.path.exists(lock_p):
     try:
      os.remove(lock_p)
-     logger.info(f"Cleaned stale browser lock: {lock_name}")
+     logger.debug(f"Cleaned: {lock_name}")
     except Exception: pass
 
   try:
-   logger.info("Starting browser engine...")
+   logger.info("Starting engine...")
    self._playwright = await async_playwright().start()
 
    # Chromium launch - industry standard for WA Web stability
@@ -156,6 +156,7 @@ class BrowserController:
      '--disable-web-security',
      '--disable-features=IsolateOrigins,site-per-process',
      '--disable-accelerated-2d-canvas',
+     '--disable-software-rasterizer',
      '--no-first-run',
      '--no-zygote',
      '--disable-gpu',
@@ -168,15 +169,25 @@ class BrowserController:
 
    # Injection: Restore localStorage if pending
    if self._pending_storage:
-    logger.info("Restoring session localStorage...")
-    for origin in self._pending_storage:
-     url = origin.get("origin")
-     storage = origin.get("localStorage", [])
-     # We need to be on the origin to set localStorage
-     # But Playwright persistent context handles cookies well.
-     # This is a specific hook for localStorage if needed.
-     # Note: Usually cookies are enough for WAWeb, but we support full sync.
-     pass
+    logger.debug("Restoring storage...")
+    for origin_data in self._pending_storage:
+     url = origin_data.get("origin")
+     storage = origin_data.get("localStorage", {})
+     
+     # We must navigate to the origin to set localStorage
+     # Persistent context handles cookies, but localStorage is origin-bound
+     try:
+      await self._page.goto(url, wait_until="commit")
+      await self._page.evaluate("""
+       (data) => {
+        for (const [key, val] of Object.entries(data)) {
+         localStorage.setItem(key, val);
+        }
+       }
+      """, storage)
+     except Exception as e:
+      logger.warning(f"Failed to restore localStorage for {url}: {e}")
+      
     self._pending_storage = None
 
    # Stability: Set long timeouts for slow networks
@@ -189,7 +200,7 @@ class BrowserController:
    self._page.on("console", self._relay_console)
    self._context.on("close", self._handle_termination)
 
-   logger.info("Browser is online and ready.")
+   logger.info("Engine is ready.")
    return self._page
 
   except Exception as e:
@@ -200,7 +211,7 @@ class BrowserController:
   """
   Gracefully shuts down the browser and releases files.
   """
-  logger.info("Stopping browser engine...")
+  logger.debug("Stopping engine...")
   try:
    if self._page: await self._page.close()
    if self._context: await self._context.close()
@@ -310,7 +321,7 @@ class BrowserController:
   text = msg.text
   if " [Astra] " in text:
    # These are our internal bridge logs
-   logger.info(f"Engine: {text.split('[Astra]', 1)[1].strip()}")
+   logger.debug(f"Engine: {text.split('[Astra]', 1)[1].strip()}")
   elif msg.type == "error":
    # Real JS errors on the page
    if not any(x in text for x in ["SameSite", "Content-Security-Policy", "ErrorUtils"]):

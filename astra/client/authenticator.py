@@ -21,7 +21,7 @@ from ..connection import BrowserController
 from ..errors import LoginFailedError, AuthRateLimitError
 from .phonepairing import JS_SCRIPTS, format_pairing_code
 
-logger = logging.getLogger("Astra.Auth")
+logger = logging.getLogger("Auth")
 
 class Authenticator:
     """
@@ -45,6 +45,8 @@ class Authenticator:
         self._phone = phone
         self._use_pairing = use_pairing
         self._last_qr = None
+        self._last_code = None
+        self._phone_injected = False
 
     async def login(self, timeout: float = 120.0):
         """
@@ -60,51 +62,86 @@ class Authenticator:
             LoginFailedError: If authentication times out or fails.
             AuthRateLimitError: If WhatsApp blocks pairing attempts.
         """
-        logger.info(f"Starting authentication for {self._phone or 'QR scan'}...")
+        logger.info(f"Logging in with {self._phone or 'QR scan'}...")
         
         start_time = asyncio.get_event_loop().time()
-        pairing_attempted = False
+        
+        # --- DB Recovery Logic ---
+        # If the browser is in a fresh state, try to restore from SQLite backup
+        try:
+             initial_state = await self._detect_state()
+             if initial_state in ["LOGIN_QR", "LOGIN_PHONE", "UNKNOWN"]:
+                  logger.info("Checking for saved session...")
+                  # We use the store linked to the parent client if available
+                  # BrowserController doesn't have direct access, but Authenticator is owned by Client
+                  # We assume the caller (Client) has initialized self.store
+                  db_state = getattr(self._controller, "_db_recovery_state", None)
+                  
+                  # If we haven't checked the DB yet, do it now
+                  if hasattr(self._controller, "get_db_state_callback"):
+                       db_state = self._controller.get_db_state_callback()
+                       
+                  if db_state:
+                       logger.info("Restoring session...")
+                       await self.import_session(db_state)
+                       # Wait for bridge to settle after navigation
+                       await asyncio.sleep(3.0)
+        except Exception as e:
+             logger.debug(f"DB Recovery attempt failed or skipped: {e}")
+        # -------------------------
         
         while (asyncio.get_event_loop().time() - start_time) < timeout:
             state = await self._detect_state()
             
             if state == "CONNECTED":
-                logger.info("✅ Authentication successful. Session established.")
+                logger.info("Authentication successful. Session established.")
                 return True
             
             if state == "LOGIN_QR":
                 # If we have a phone number, we prefer pairing over QR
-                if (self._phone or self._use_pairing) and not pairing_attempted:
-                    logger.info("📱 Phone number detected. Switching to high-fidelity pairing mode...")
-                    await self._trigger_pairing()
-                    pairing_attempted = True
+                if self._phone or self._use_pairing:
+                    now = asyncio.get_event_loop().time()
+                    # Retry every 60 seconds if still on QR screen
+                    # This gives the user enough time to input the code on their phone
+                    if not hasattr(self, "_last_pairing_attempt") or (now - self._last_pairing_attempt) > 60.0:
+                        attempt = getattr(self, "_pairing_attempts", 0) + 1
+                        self._pairing_attempts = attempt
+                        self._last_pairing_attempt = now
+                        
+                        logger.info(f"Pairing attempt {attempt}...")
+                        await self._trigger_pairing()
+                        # Give it extra time to transition in slow envs
+                        await asyncio.sleep(5.0)
                 else:
                     qr_data = await self._get_qr_data()
                     if qr_data and qr_data != self._last_qr:
                         self._last_qr = qr_data
-                        logger.info("🆕 QR code updated. Scan with WhatsApp Mobile App.")
+                        logger.info("Scan the QR code with WhatsApp.")
                         self._display_qr(qr_data)
             
             elif state == "LOGIN_PHONE":
                 if self._phone:
-                    logger.info(f"💾 Injecting phone number: {self._phone}")
-                    await self._inject_phone(self._phone)
+                    if not self._phone_injected:
+                        logger.info(f"Injecting phone number: {self._phone}")
+                        await self._inject_phone(self._phone)
+                        self._phone_injected = True
                 else:
-                    if int(asyncio.get_event_loop().time() - start_time) % 10 == 0:
-                        logger.info("⌨️ Waiting for phone number input in UI...")
+                    if int(asyncio.get_event_loop().time() - start_time) % 30 == 0:
+                        logger.info("Waiting for phone number input in UI...")
             
             elif state == "LOGIN_CODE":
                 code = await self._get_pairing_code()
-                if code:
+                if code and code != self._last_code:
+                    self._last_code = code
                     self._display_code(code)
             
             elif state == "LOADING":
-                if int(asyncio.get_event_loop().time() - start_time) % 10 == 0:
-                    logger.info("⏳ WhatsApp Web is loading...")
+                if int(asyncio.get_event_loop().time() - start_time) % 60 == 0:
+                    logger.debug("Loading...")
             
             elif state in ["RECONNECTING", "NET_ERROR"]:
                  if int(asyncio.get_event_loop().time() - start_time) % 10 == 0:
-                    logger.warning(f"🌐 Network instability detected: {state}. Astra will retry shortly...")
+                    logger.warning(f"Network instability detected: {state}. Astra will retry shortly...")
 
             elif state == "ALERT_VISIBLE":
                 logger.warning("Dismissing blocking alert...")
@@ -144,7 +181,7 @@ class Authenticator:
         Now handles country code selection (+91) and formatting internally.
         """
         page = self._controller.page
-        logger.info(f"Injecting {phone} via robust JS engine...")
+        logger.debug(f"Sending phone number: {phone}...")
         
         # We invoke the async JS function directly
         # The script is a function definition, so we wrap it in () and call it
@@ -185,3 +222,47 @@ class Authenticator:
         """Displays the pairing code prominently."""
         formatted = format_pairing_code(code)
         print(f"\n{'='*30}\nPAIRING CODE: {formatted}\n{'='*30}\n")
+
+    async def export_session(self) -> dict:
+        """
+        Exports the current session state (cookies + localStorage).
+        """
+        page = self._controller.page
+        cookies = await self._controller.context.cookies()
+        
+        # Navigate to WA origin to get localStorage if not already there
+        # but persistent context usually handles this.
+        storage = await page.evaluate("""
+            () => {
+                let json = {};
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    json[key] = localStorage.getItem(key);
+                }
+                return json;
+            }
+        """)
+        
+        return {
+            "cookies": cookies,
+            "localStorage": storage
+        }
+
+    async def import_session(self, state: dict):
+        """
+        Imports a previously exported session state.
+        """
+        if not state: return
+        
+        # We set cookies on the context
+        if "cookies" in state:
+            await self._controller.context.add_cookies(state["cookies"])
+            
+        # LocalStorage requires being on the origin
+        if "localStorage" in state:
+            # We defer this until page.goto happens in client.py
+            # or we can try to use a pending_storage hook in BrowserController
+            self._controller._pending_storage = [{
+                "origin": "https://web.whatsapp.com",
+                "localStorage": state["localStorage"]
+            }]

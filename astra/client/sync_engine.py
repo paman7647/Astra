@@ -32,7 +32,7 @@ from ..constants import (
  RECONNECT_JITTER_MAX,
 )
 
-logger = logging.getLogger("Astra.Sync")
+logger = logging.getLogger("Sync")
 
 
 class SyncEngine:
@@ -84,14 +84,14 @@ class SyncEngine:
   self._last_event_ts = time.monotonic()
   self._reconnect_attempts = 0
   self._task = asyncio.create_task(self._run_loop())
-  logger.info("SyncEngine started.")
+  logger.info("Sync started.")
 
  def stop(self):
   """Stops the sync engine gracefully."""
   self._running = False
   if self._task and not self._task.done():
    self._task.cancel()
-  logger.info("SyncEngine stopped.")
+  logger.info("Sync stopped.")
 
  def notify_event_received(self):
   """Called by the EventDispatcher on every incoming event.
@@ -147,6 +147,11 @@ class SyncEngine:
     if (now - self._last_cache_sync_ts) >= 300:
      await self._sync_cache()
      self._last_cache_sync_ts = now
+
+    # 5. Periodic session backup (every 10 min)
+    if (now - getattr(self, "_last_session_backup_ts", 0)) >= 600:
+     await self._backup_session_to_db()
+     self._last_session_backup_ts = now
 
    except asyncio.CancelledError:
     break
@@ -534,3 +539,24 @@ class SyncEngine:
    )
   except Exception as exc:
    logger.debug(f"Cache sync failed: {exc}")
+
+ async def _backup_session_to_db(self):
+  """
+  Backs up the browser session state (cookies + LS) to SQLite in parallel.
+  This provides a secondary recovery point if the Chromium profile is lost.
+  """
+  try:
+   if not self._client.status.is_ready():
+    return
+
+   logger.debug("Backing up session state to DB...")
+   state = await self._client.authenticator.export_session()
+   
+   # Offload the SQLite write to a thread to keep the event loop non-blocking
+   await asyncio.to_thread(
+    self._client.store.save_session_state,
+    state["cookies"],
+    state["localStorage"]
+   )
+  except Exception as exc:
+   logger.debug(f"Session backup failed: {exc}")

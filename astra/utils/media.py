@@ -10,7 +10,7 @@ import tempfile
 import shutil
 import logging
 
-logger = logging.getLogger("Astra.Utils.FFmpeg")
+logger = logging.getLogger("Media")
 
 def get_ffmpeg_path():
  """Locates the FFmpeg executable."""

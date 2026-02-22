@@ -8,7 +8,7 @@ import logging
 import random
 from typing import Callable, Any, Type, Union, Tuple
 
-logger = logging.getLogger("Astra.Utils")
+logger = logging.getLogger("Retry")
 
 
 async def with_retry(
