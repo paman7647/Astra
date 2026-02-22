@@ -46,7 +46,7 @@ class ProtocolBridge:
   This method uses persistent init scripts to ensure the bridge
   survives page reloads and navigations.
   """
-  logger.info("Connecting Protocol Bridge...")
+  logger.debug("Connecting Protocol Bridge...")
 
   # 1. Expose the event uplink (allows JS to call Python)
   try:
@@ -63,7 +63,7 @@ class ProtocolBridge:
      elif level == "warn":
       logger.warning(f"[Bridge] {msg}")
      else:
-      logger.info(f"[Bridge] {msg}")
+      logger.debug(f"[Bridge] {msg}")
      return
     await self._process_event(name, payload)
 
@@ -180,9 +180,7 @@ class ProtocolBridge:
    if is_alive:
     return True
 
-   logger.info("Bridge not found — re-injecting...")
-   await self.connect()
-   logger.info("Bridge re-injected successfully.")
+   logger.debug("Bridge re-injected successfully.")
    return True
 
   except Exception as exc:

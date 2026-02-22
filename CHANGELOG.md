@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.2b13] - 2026-02-22
+### Changed
+- **Logging Supremacy**: Suppressed noisy `PROTOCOL` and internal bridge logs by moving them to the `DEBUG` level. This ensures the console remains clean for production use while maintaining detailed diagnostics in debug mode.
+
 ## [0.0.2b12] - 2026-02-22
 ### Changed
 - **Pairing UX**: Increased the phone pairing retry interval from 10s to 60s to give users ample time to input the code.
