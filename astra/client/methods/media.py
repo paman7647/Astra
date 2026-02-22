@@ -161,38 +161,106 @@ class MediaMethods:
    mid = message_id.id if isinstance(message_id, Message) else str(message_id)
    
    # 2. Get Media Data (Base64 or Chunked)
-   # We use the existing download_media logic but ensure we get the full buffer
-   # Note: download_media might return a very large string
-   data_b64 = await self.download_media(mid)
-   if not data_b64:
-    return None
+   data_b64 = None
+   try:
+    data_b64 = await self.download_media(mid)
+   except Exception as e:
+    logger.warning(f"JS retrieveMedia failed for {mid}, attempting UI Fallback: {e}")
 
-   # 3. Save to Temp File
    import tempfile
    import uuid
-   
-   # Ensure temp directory exists in current working directory or system temp
    temp_dir = os.path.join(os.getcwd(), "temp")
-   if not os.path.exists(temp_dir):
-    os.makedirs(temp_dir, exist_ok=True)
+   os.makedirs(temp_dir, exist_ok=True)
 
-   # Generate a unique path
-   # We try to guess the extension if message_id is a Message object
-   ext = "media"
-   if isinstance(message_id, Message):
-    mtype = str(message_id.type).split('.')[-1].lower()
-    if mtype == 'image': ext = 'jpg'
-    elif mtype == 'video': ext = 'mp4'
-    elif mtype == 'audio': ext = 'mp3'
-    elif mtype == 'sticker': ext = 'webp'
-   
-   file_path = os.path.join(temp_dir, f"astra_{uuid.uuid4().hex[:8]}.{ext}")
-   
-   with open(file_path, "wb") as f:
-    f.write(base64.b64decode(data_b64))
-   
-   logger.info(f"Media saved to: {file_path}")
-   return os.path.abspath(file_path)
+   if data_b64:
+    # 3. Save to Temp File
+    ext = "media"
+    if isinstance(message_id, Message):
+     mtype = str(message_id.type).split('.')[-1].lower()
+     if mtype == 'image': ext = 'jpg'
+     elif mtype == 'video': ext = 'mp4'
+     elif mtype == 'audio': ext = 'mp3'
+     elif mtype == 'sticker': ext = 'webp'
+    
+    file_path = os.path.join(temp_dir, f"astra_{uuid.uuid4().hex[:8]}.{ext}")
+    
+    with open(file_path, "wb") as f:
+     f.write(base64.b64decode(data_b64))
+    
+    logger.info(f"Media saved via JS Cache: {file_path}")
+    return os.path.abspath(file_path)
+
+   # =========================================================
+   # UI PLAYWRIGHT FALLBACK
+   # =========================================================
+   logger.info(f"Attempting Playwright UI Download Fallback for {mid}")
+   page = self._client.bridge._page
+   short_id = mid.split('_')[-1] if '_' in mid else mid
+
+   # Scroll message into view
+   await page.evaluate('''async (msgId) => {
+    const Store = window.Astra?.initializeEngine();
+    if (!Store) return;
+    const msg = Store.Msg?.get(msgId);
+    if (msg && Store.Cmd?.scrollToMessage) {
+     Store.Cmd.scrollToMessage(msg);
+     await new Promise(r => setTimeout(r, 800));
+    }
+   }''', mid)
+
+   msg_loc = page.locator(f'div[data-id="{mid}"]').first
+   if await msg_loc.count() == 0:
+    msg_loc = page.locator(f'div[data-id*="{short_id}"]').first
+
+   if await msg_loc.count() > 0:
+    # Strategy A: Right-Click -> "Download" Context Menu
+    await msg_loc.click(button='right')
+    await asyncio.sleep(0.5)
+    
+    dl_option = page.get_by_text("Download", exact=True).locator("visible=true").last
+    if await dl_option.count() > 0:
+     logger.debug("Found 'Download' in context menu, clicking...")
+     async with page.expect_download(timeout=15000) as download_info:
+      await dl_option.click()
+     
+     download = await download_info.value
+     file_path = os.path.join(temp_dir, f"astra_dl_{uuid.uuid4().hex[:8]}_{download.suggested_filename}")
+     await download.save_as(file_path)
+     logger.info(f"Successfully downloaded via UI Context Menu: {file_path}")
+     return os.path.abspath(file_path)
+    
+    # Strategy B: Open Media Viewer -> Click "Download" icon
+    await page.keyboard.press("Escape") # Close context menu
+    await asyncio.sleep(0.5)
+    
+    logger.debug("Trying Media Viewer approach...")
+    img_loc = msg_loc.locator('img, video').first
+    if await img_loc.count() > 0:
+     # Click with left button to open Image/Video Viewer
+     await img_loc.click()
+     await asyncio.sleep(1.0)
+     
+     viewer_dl = page.locator('div[role="button"][title="Download"]').first
+     if await viewer_dl.count() == 0:
+      viewer_dl = page.locator('span[data-icon="download"]').first
+     
+     if await viewer_dl.count() > 0:
+      logger.debug("Found 'Download' icon in viewer, clicking...")
+      async with page.expect_download(timeout=15000) as download_info:
+       await viewer_dl.click()
+      
+      download = await download_info.value
+      file_path = os.path.join(temp_dir, f"astra_dl_{uuid.uuid4().hex[:8]}_{download.suggested_filename}")
+      await download.save_as(file_path)
+      
+      await page.keyboard.press("Escape") # Close viewer
+      logger.info(f"Successfully downloaded via Media Viewer: {file_path}")
+      return os.path.abspath(file_path)
+     else:
+      await page.keyboard.press("Escape") # Close viewer if no download button
+
+   logger.error(f"UI Download Fallback completely exhausted for {mid}.")
+   return None
 
   except Exception as e:
    logger.error(f"Media download/save failed: {e}")
