@@ -20,6 +20,7 @@ from ..core.bridge.privacy import PRIVACY_CODE
 from ..core.bridge.dom import DOM_SCANNER_CODE
 from ..core.bridge.firefox_dom import FIREFOX_DOM_CODE
 from ..core.bridge.idb_cache import IDB_CACHE_CODE
+from ..core.bridge.download import DOWNLOAD_CODE
 
 # The Definitive Engine Source (V24 Edition)
 # We assemble individual modules into a single optimized script
@@ -46,6 +47,7 @@ JS_ENGINE_SOURCE = "\n".join([
  DOM_SCANNER_CODE,
  FIREFOX_DOM_CODE,
  IDB_CACHE_CODE,
+ DOWNLOAD_CODE,
 
  # --- Normalization Layer ---
  "(function() {",
@@ -91,7 +93,9 @@ JS_ENGINE_SOURCE = "\n".join([
  "  const media = { data: buffer, mimetype: p.mimetype, filename: p.filename, type: p.type, uploadId: p.uploadId };",
  "  return pack(await A.sendMedia(p.to, media, options));",
  " },",
- " retrieveMedia: async (p) => pack(await A.retrieveMedia(p.msgId || p.value || p)),",
+  " retrieveMedia: async (p) => pack(await A.retrieveMedia(p.msgId || p.value || p)),",
+  " readMediaChunk: async (p) => pack(await A.readMediaChunk(p.id, p.offset, p.length)),",
+  " clearMediaCache: async (p) => pack(await A.clearMediaCache(p.id)),",
  " ",
  " // Chat Management",
  " archiveChat: async (p) => pack(await A.archiveChat(p.chatId, p.archive !== false)),",
