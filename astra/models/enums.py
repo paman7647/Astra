@@ -53,6 +53,9 @@ class MessageType(Enum):
  POLL = "poll_creation"
  REACTION = "reaction"
  TEMPLATE = "notification_template"
+ GROUP_NOTIFICATION = "gp2"
+ BROADCAST_NOTIFICATION = "broadcast_notification"
+ E2E_NOTIFICATION = "e2e_notification"
  UNKNOWN = "unknown"
 
  @classmethod

@@ -96,25 +96,83 @@ ACCOUNT_CODE = r"""
   return null;
  };
 
- window.Astra.joinGroupViaLink = async (code) => {
-  const Store = window.Astra.initializeEngine();
-  if (Store.GroupInvite && Store.GroupInvite.sendJoinGroupViaInvite) {
-   return await Store.GroupInvite.sendJoinGroupViaInvite(code);
-  }
-  return null;
- };
-
- window.Astra.updateProfileDOM = async (pushname) => {
-  const Store = window.Astra.initializeEngine();
-  const mod = Store.AccountUtils || Store.Settings || Store.Perfil;
-  if (mod && mod.setPushname) {
-   try {
-    await mod.setPushname(pushname);
-    return true;
-   } catch (e) {
-    console.warn('[Astra] setPushname failed, falling back to DOM:', e.message);
+  window.Astra.joinGroupViaLink = async (code) => {
+   const Store = window.Astra.initializeEngine();
+   if (Store.GroupInvite && Store.GroupInvite.sendJoinGroupViaInvite) {
+    return await Store.GroupInvite.sendJoinGroupViaInvite(code);
    }
-  }
+   return null;
+  };
+
+  window.Astra.cropAndResizeImage = async (media, options = {}) => {
+    const { data, mimetype } = media;
+    const { size = 640, quality = 0.75, asDataUrl = false } = options;
+
+    if (!mimetype.includes('image')) throw new Error('Astra: Media is not an image');
+
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = `data:${mimetype};base64,${data}`;
+    });
+
+    const sl = Math.min(img.width, img.height);
+    const sx = Math.floor((img.width - sl) / 2);
+    const sy = Math.floor((img.height - sl) / 2);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, sx, sy, sl, sl, 0, 0, size, size);
+
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+    if (asDataUrl) return dataUrl;
+    return dataUrl.split(',')[1];
+  };
+
+  window.Astra.setProfilePic = async (data) => {
+    const Store = window.Astra.initializeEngine();
+    const GroupUtils = Store.GroupUtils;
+    if (!GroupUtils || !GroupUtils.sendSetPicture) throw new Error('Astra: GroupUtils.sendSetPicture not found');
+
+    const me = window.Astra.getIdentity();
+    if (!me || !me.id) throw new Error('Astra: Could not resolve own identity for PFP update');
+    const wid = window.Astra.createWid(me.id);
+
+    console.log('[Astra] Processing PFP images...');
+    const media = { data, mimetype: 'image/jpeg' };
+    const thumbnail = await window.Astra.cropAndResizeImage(media, { size: 96, asDataUrl: true });
+    const profilePic = await window.Astra.cropAndResizeImage(media, { size: 640, asDataUrl: true });
+
+    console.log('[Astra] Sending PFP update to WhatsApp...');
+    const res = await GroupUtils.sendSetPicture(wid, thumbnail, profilePic);
+    return res && (res.status === 200 || res.status === 'OK');
+  };
+
+  window.Astra.updateProfileDOM = async (pushname) => {
+   const Store = window.Astra.initializeEngine();
+   const mod = Store.AccountUtils || Store.Settings || Store.Perfil;
+   if (mod && (mod.setPushname || mod.setMyPushname)) {
+    try {
+     const fn = mod.setPushname || mod.setMyPushname;
+     console.log('[Astra] Calling setPushname...');
+     await fn.call(mod, pushname);
+     
+     // Verification
+     await new Promise(r => setTimeout(r, 1000));
+     const current = (Store.Conn && Store.Conn.pushname) || (Store.SessionInfo && Store.SessionInfo.pushname);
+     if (current === pushname) {
+       console.log('[Astra] Profile name updated via internal API (Verified).');
+       return true;
+     }
+     console.warn('[Astra] setPushname returned but name did not match. Falling back to DOM.');
+    } catch (e) {
+     console.warn('[Astra] setPushname failed:', e.message);
+    }
+   }
 
   await window.Astra.ensureSidebar('Profile', true);
   const nameEdit = document.querySelector('button[aria-label*="edit Name"]') ||
@@ -133,18 +191,19 @@ ACCOUNT_CODE = r"""
   return true;
  };
 
- window.Astra.setStatusDOM = async (status) => {
-  const Store = window.Astra.initializeEngine();
-  const mod = Store.AccountUtils || Store.StatusUtils || Store.Perfil || Store.Settings;
-  if (mod && (mod.setMyStatus || mod.setAbout)) {
-   try {
-    const fn = mod.setMyStatus || mod.setAbout;
-    await fn.call(mod, status);
-    return true;
-   } catch (e) {
-    console.warn('[Astra] setAbout/setMyStatus failed, falling back to DOM:', e.message);
+  window.Astra.setStatusDOM = async (status) => {
+   const Store = window.Astra.initializeEngine();
+   const mod = Store.AccountUtils || Store.StatusUtils || Store.Perfil || Store.Settings;
+   if (mod && (mod.setMyStatus || mod.setAbout || mod.setStatus)) {
+    try {
+     const fn = mod.setMyStatus || mod.setAbout || mod.setStatus;
+     await fn.call(mod, status);
+     console.log('[Astra] About text updated via internal API.');
+     return true;
+    } catch (e) {
+     console.warn('[Astra] setAbout/setMyStatus failed, falling back to DOM:', e.message);
+    }
    }
-  }
 
   await window.Astra.ensureSidebar('Profile', true);
   const editBtn = document.querySelector('button[aria-label*="edit About"]') ||

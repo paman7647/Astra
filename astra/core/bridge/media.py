@@ -27,6 +27,30 @@ MEDIA_CODE = r"""
    reader.readAsDataURL(blob);
   });
 
+ window.Astra.chunkedUploads = {};
+
+ window.Astra.initChunkedUpload = (id, totalSize) => {
+  window.Astra.chunkedUploads[id] = {
+   buffer: new Uint8Array(totalSize),
+   offset: 0,
+   totalSize: totalSize
+  };
+  return true;
+ };
+
+ window.Astra.pushChunk = (id, dataB64) => {
+  const session = window.Astra.chunkedUploads[id];
+  if (!session) throw new Error("Astra: Upload session not found: " + id);
+  
+  const bin = window.atob(dataB64);
+  const view = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) {
+   session.buffer[session.offset + i] = bin.charCodeAt(i);
+  }
+  session.offset += bin.length;
+  return { offset: session.offset, total: session.totalSize };
+ };
+
  window.Astra.send_media = async function(to, data, mimetype, filename, caption, options = {}) {
   return await window.Astra.sendMedia(to, { data, mimetype, filename }, { caption, ...options });
  };
@@ -101,7 +125,15 @@ MEDIA_CODE = r"""
     key = { id: id, _serialized: typeof id === 'string' ? id : (id && id._serialized ? id._serialized : String(id)) };
    }
 
-   const file = window.Astra.base64ToFile(media);
+   let file;
+  if (media.uploadId && window.Astra.chunkedUploads[media.uploadId]) {
+   const session = window.Astra.chunkedUploads[media.uploadId];
+   const blob = new Blob([session.buffer], { type: mimetype });
+   file = new File([blob], media.filename || 'media', { type: mimetype, lastModified: Date.now() });
+   delete window.Astra.chunkedUploads[media.uploadId];
+  } else {
+   file = window.Astra.base64ToFile(media);
+  }
 
    // Defensive: if it's a video, ensure we have dimensions before prep
    if (mimetype.startsWith('video/')) {
@@ -309,31 +341,22 @@ MEDIA_CODE = r"""
    msg.caption = options.caption || '';
    msg.body = undefined;
 
-   // Send message using available send APIs with fallbacks
-   let p1;
    try {
-    if (Store.SendMessage && typeof Store.SendMessage.addAndSendMsgToChat === 'function') {
-     p1 = (await Store.SendMessage.addAndSendMsgToChat(target, msg))[0];
-    } else if (Store.MessageSender && typeof Store.MessageSender.addAndSendMsgToChat === 'function') {
-     console.warn('[Astra] fallback: used MessageSender.addAndSendMsgToChat in sendMedia');
-     p1 = (await Store.MessageSender.addAndSendMsgToChat(target, msg))[0];
-    } else if (Store.SendMessage && typeof Store.SendMessage.send === 'function') {
-     console.warn('[Astra] fallback: used SendMessage.send in sendMedia');
-     p1 = Promise.resolve(Store.SendMessage.send(target, msg));
-    } else {
-     throw new Error('Astra: No SendMessage implementation available to send media');
-    }
-
+    const p1 = (await Store.SendMessage.addAndSendMsgToChat(target, msg))[0];
     await p1;
    } catch (sendErr) {
     console.error('[Astra] sendMedia send error:', sendErr);
     throw sendErr;
    }
 
-   // Resolve result from repo; be tolerant if key._serialized missing
    const serialized = key && (key._serialized || (typeof key === 'string' ? key : (key && key.id ? (key.id._serialized || key.id) : null)));
-   const res = serialized ? repo.get(serialized) : (repo.get ? repo.get(key) : null);
-   return window.Astra.serializeMsg(res || msg);
+   return {
+    id: serialized || id,
+    body: msg.body || msg.caption || "",
+    type: msg.type,
+    isSent: true,
+    timestamp: msg.t
+   };
   } catch (e) {
    // Normalize and stringify error so Page.evaluate returns a readable message
    try {

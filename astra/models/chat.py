@@ -9,8 +9,24 @@ A Chat can be a private conversation or a group.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from .user import JID
+
+@dataclass
+class GroupParticipant:
+ id: JID
+ is_admin: bool = False
+ is_super_admin: bool = False
+
+@dataclass
+class GroupInfo:
+ id: JID
+ title: str
+ subject: str
+ description: str
+ owner: Optional[JID]
+ creation: Optional[int]
+ participants: List[GroupParticipant]
 
 @dataclass
 class Chat:

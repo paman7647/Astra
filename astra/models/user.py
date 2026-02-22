@@ -49,6 +49,17 @@ class JID:
   username, server = raw.split("@", 1)
   return cls(user=username, server=server, serialized=raw)
 
+ @property
+ def primary(self) -> str:
+  """
+  Returns the primary (base) JID without device suffixes.
+  Example: '12345:4@lid' -> '12345@lid'
+  """
+  if ":" in self.user:
+   base_user = self.user.split(":", 1)[0]
+   return f"{base_user}@{self.server}"
+  return self.serialized
+
  def __str__(self) -> str:
   return self.serialized
 
@@ -65,14 +76,14 @@ class User:
  push_name: Optional[str] = None
  is_me: bool = False
  is_business: bool = False
- is_business: bool = False
  is_my_contact: bool = False
+ verified_name: Optional[str] = None
  _client: Any = None # Bound Astra Client
 
  @property
  def title(self) -> str:
   """Standardized title property for entity resolution."""
-  return self.name or self.push_name or self.id.user
+  return self.name or self.push_name or self.verified_name or self.id.user
 
  async def send_message(self, text: str, **kwargs) -> Any:
   """Sends a private message to this user."""
@@ -104,5 +115,6 @@ class User:
    is_me=data.get("isMe", False),
    is_business=data.get("isBusiness", False),
    is_my_contact=data.get("isMyContact", False),
+   verified_name=data.get("verifiedName"),
    _client=client
   )

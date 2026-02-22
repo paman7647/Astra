@@ -58,3 +58,7 @@ html_show_sourcelink = False
 # -- General -----------------------------------------------------------
 add_module_names = False
 toc_object_entries_show_parents = 'hide'
+
+# Custom CSS registration
+def setup(app):
+    app.add_css_file('css/custom.css')

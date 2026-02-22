@@ -35,19 +35,21 @@ STATUS_CODE = r"""
     sendFn = target.postStatusV3 || target.postStatus || target.sendStatusV3;
    }
 
-   if (sendFn) {
-    try {
-     console.log('[Astra] Attempting internal status update...');
-     await Promise.race([
-      sendFn.call(target, payload),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
-     ]);
-     console.log('[Astra] Internal status update successful.');
-     return true;
-    } catch (e) {
-     console.warn(`[Astra] Internal status update failed or timed out: ${e.message}`);
+    if (sendFn) {
+     try {
+      console.log(`[Astra] Attempting internal status update using ${sendFn.name || 'anonymous'}...`);
+      // V24 pattern: some modules expect (text, options) others expect (payload)
+      const result = await Promise.race([
+       sendFn.call(target, payload.body, payload), // Try both string and object
+       sendFn.call(target, payload),
+       new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
+      ]);
+      console.log('[Astra] Internal status update successful result:', result);
+      return true;
+     } catch (e) {
+      console.warn(`[Astra] Internal status update failed or timed out: ${e.message}`);
+     }
     }
-   }
   }
 
   console.log('[Astra] Falling back to DOM for status update...');

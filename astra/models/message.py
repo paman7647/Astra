@@ -43,17 +43,34 @@ class Message:
  ack: MessageAck = MessageAck.SENT
  is_editable: bool = False
 
+ # Name Metadata (Push-Based)
+ sender_name: Optional[str] = None
+ pushname: Optional[str] = None
+ verified_name: Optional[str] = None
+
  # Enrichment
  quoted_message_id: Optional[str] = None
  quoted_participant: Optional[JID] = None
  quoted_type: Optional[MessageType] = None
  has_quoted_msg: bool = False
  mentioned_jids: List[JID] = field(default_factory=list)
+ subtype: Optional[str] = None
+ recipients: List[JID] = field(default_factory=list)
 
  @property
  def text(self) -> str:
   """Alias for body for compatibility with EventContext."""
   return self.body
+
+ @property
+ def author(self) -> Optional[JID]:
+  """Backward compatibility alias for sender."""
+  return self.sender
+
+ @property
+ def quoted_message(self) -> Optional['Message']:
+  """Backward compatibility alias for quoted."""
+  return self.quoted
 
  @property
  def quoted(self) -> Optional['Message']:
@@ -65,12 +82,12 @@ class Message:
   # For now, we return a mock or a reference if we had a cache.
   # But for logic checks like 'if msg.quoted', we just need to know if it exists.
   if self.quoted_message_id:
-   # We don't have the full object here usually unless the bridge sends it.
-   # But we can return a skeleton.
+   # Return a skeleton with participant and basic metadata
    return Message(
     _client=self._client,
     id=self.quoted_message_id,
     chat_id=self.chat_id,
+    sender=self.quoted_participant,
     type=self.quoted_type or MessageType.TEXT
    )
   return None
@@ -84,7 +101,11 @@ class Message:
  def is_service(self) -> bool:
   """True if this is a system/service message (e.g. group join/leave)."""
   # Mapping specialized notification types to service flag
-  return self.type.value in {"gp2", "broadcast_notification", "e2e_notification"}
+  return self.type in {
+      MessageType.GROUP_NOTIFICATION,
+      MessageType.BROADCAST_NOTIFICATION,
+      MessageType.E2E_NOTIFICATION
+  }
 
  @classmethod
  def from_payload(cls, data: Dict[str, Any], client: Any = None) -> "Message":
@@ -151,12 +172,18 @@ class Message:
    is_status=data.get("isStatus", False),
    ack=MessageAck(data.get("ack") if data.get("ack") is not None else 0),
    is_editable=data.get("isEditable", False),
+   sender_name=data.get("senderName"),
+   pushname=data.get("pushname"),
+   verified_name=data.get("verifiedName"),
    quoted_message_id=quoted_id,
    quoted_participant=JID.parse(quoted_participant) if quoted_participant else None,
    quoted_type=quoted_type,
    has_quoted_msg=bool(quoted_id or data.get("hasQuotedMsg")),
    mentioned_jids=[JID.parse(m) if isinstance(m, str) else JID.parse(m.get("_serialized", ""))
-       for m in (data.get("mentionedJidList") or [])]
+       for m in (data.get("mentionedJidList") or [])],
+   subtype=data.get("subtype"),
+   recipients=[JID.parse(r) if isinstance(r, str) else JID.parse(r.get("_serialized", ""))
+              for r in (data.get("recipients") or [])]
   )
 
  async def reply(self, text: str) -> "Message":

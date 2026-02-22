@@ -3,7 +3,13 @@
 Astra Engine
 ============
 
-**A high-performance WhatsApp Web automation library for Python.**
+**A high-performance WhatsApp Web automation framework for Python.**
+
+Astra Engine is designed to make building bots and integrations on WhatsApp
+Web straightforward without having to interact with the browser directly.
+It encapsulates Playwright, the WhatsApp Web bridge, and a rich set of
+helpers so you can focus on your business logic rather than scraping or
+reverse engineering the client.
 
 Astra Engine provides a clean, async Python interface to WhatsApp Web.
 It handles authentication, message sending, group management, media, and
@@ -44,6 +50,7 @@ Why Astra?
  :maxdepth: 2
  :caption: Getting Started
 
+ introduction
  installation
  quickstart
 
@@ -58,6 +65,7 @@ Why Astra?
  event_system
  error_codes
  examples
+ cookbook
 
 .. toctree::
  :maxdepth: 2
@@ -75,6 +83,7 @@ Why Astra?
  migration
  testing
  faq
+ troubleshooting
 
 .. toctree::
  :maxdepth: 2

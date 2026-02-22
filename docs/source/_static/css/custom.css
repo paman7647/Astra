@@ -1,0 +1,4 @@
+/* Custom CSS to allow Read the Docs theme to fill the page width */
+.wy-nav-content {
+    max-width: 1200px !important;
+}

@@ -10,54 +10,97 @@ GROUP_CODE = r"""
  const getWid = (id, Store) => window.Astra.createWid(id);
  const getChat = async (id, Store) => await window.Astra.getChat(getWid(id, Store));
 
- window.Astra.kickParticipants = async function(groupId, participants) {
-  const Store = window.Astra.initializeEngine();
-  const chat = getChat(groupId, Store);
-  if (!chat) throw new Error("Group not found");
+   const mutateParticipants = async function(chat, participants, funcName) {
+    const Store = window.Astra.initializeEngine();
+    const pids = participants.map(p => getWid(p, Store)).filter(Boolean);
+    if (pids.length === 0) throw new Error("No valid participants found");
 
-  const pids = participants.map(p => getWid(p, Store));
-  if (Store.GroupParticipants && Store.GroupParticipants.removeParticipants) {
-    await Store.GroupParticipants.removeParticipants(chat, pids);
-  } else {
-    // Fallback to legacy if mapped differently
-    await window.Store.GroupParticipants.removeParticipants(chat, pids);
-  }
-  return true;
- };
+    // Live Participant objects from GroupMetadata (Critical for recent WA versions)
+    const liveParticipants = pids.map(wid => {
+      try {
+        return chat.groupMetadata?.participants?.get(wid) || chat.groupMetadata?.participants?.get(wid._serialized) || null;
+      } catch(e) { return null; }
+    }).filter(Boolean);
 
- window.Astra.addParticipants = async function(groupId, participants) {
-  const Store = window.Astra.initializeEngine();
-  const chat = getChat(groupId, Store);
-  const pids = participants.map(p => getWid(p, Store));
+    const strategies = [
+      { name: "Chat, Participant Objects", data: [chat, liveParticipants] },
+      { name: "Chat, Wid Array", data: [chat, pids] },
+      { name: "Chat, Serialized Array", data: [chat, pids.map(w => w._serialized || w.id || w)] },
+      { name: "Chat, Object Array {id: Wid}", data: [chat, pids.map(w => ({ id: w }))] },
+      { name: "ChatWid, Wid Array", data: [chat.id || chat, pids] },
+      { name: "Wid Array Only", data: [pids] }
+    ];
 
-  if (Store.GroupParticipants && Store.GroupParticipants.addParticipants) {
-   await Store.GroupParticipants.addParticipants(chat, pids);
-  } else if (Store.GroupParticipants && Store.GroupParticipants.sendAddParticipantsRPC) {
-    // Basic RPC call if wrapper not found
-    // This might require more args, but sticking to what worked in base.py heuristic logic finding the wrapper
-    // Actually LegacyStore maps 'sendAddParticipantsRPC' to GroupParticipants.
-    // We'll rely on Store.GroupParticipants existing.
-    // If manual composition worked, it should have it.
-    await Store.GroupParticipants.addParticipants(chat, pids);
-  }
-  return true;
- };
+    let lastError;
+    // Try both GroupParticipants AND GroupUtils as some methods migrate
+    const providers = [
+      { name: 'GroupParticipants', module: Store.GroupParticipants },
+      { name: 'GroupUtils', module: Store.GroupUtils }
+    ].filter(p => !!p.module);
 
- window.Astra.promoteParticipants = async function(groupId, participants) {
-  const Store = window.Astra.initializeEngine();
-  const chat = getChat(groupId, Store);
-  const pids = participants.map(p => getWid(p, Store));
-  await Store.GroupParticipants.promoteParticipants(chat, pids);
-  return true;
- };
+    for (const provider of providers) {
+      const gFunc = provider.module[funcName];
+      if (!gFunc) continue;
 
- window.Astra.demoteParticipants = async function(groupId, participants) {
-  const Store = window.Astra.initializeEngine();
-  const chat = getChat(groupId, Store);
-  const pids = participants.map(p => getWid(p, Store));
-  await Store.GroupParticipants.demoteParticipants(chat, pids);
-  return true;
- };
+      for (const strategy of strategies) {
+        if (strategy.data[1] && Array.isArray(strategy.data[1]) && strategy.data[1].length === 0 && strategy.name.includes("Participant")) {
+          // Skip if we couldn't find any live participants for that strategy
+          continue;
+        }
+        try {
+          console.log(`[Astra] [${funcName}] Provider: ${provider.name}, Strategy: ${strategy.name}`);
+          
+          // CRITICAL: Must use .apply() for module methods to preserve 'this'
+          const result = await gFunc.apply(provider.module, strategy.data);
+          
+          console.log(`[Astra] [${funcName}] Success with ${provider.name} / ${strategy.name}`);
+          return result === undefined ? true : result;
+        } catch (e) {
+          console.warn(`[Astra] [${funcName}] ${provider.name} / ${strategy.name} failed: ${e.message}`);
+          if (e.stack && !e.message.includes("not found")) console.warn(e.stack);
+          lastError = e;
+          // Don't retry if it's a permission/logic error
+          if (e.message.includes("not an admin") || e.message.includes("Group not found")) throw e;
+        }
+      }
+    }
+
+    // Last ditch for add: sendAddParticipantsRPC
+    if (funcName === 'addParticipants' && Store.GroupParticipants.sendAddParticipantsRPC) {
+      try {
+        console.log(`[Astra] Attempting addParticipants with sendAddParticipantsRPC...`);
+        return await Store.GroupParticipants.sendAddParticipantsRPC(chat, pids);
+      } catch (e) {
+        lastError = e;
+      }
+    }
+
+    throw lastError || new Error(`${funcName} failed after all strategies`);
+  };
+
+  window.Astra.kickParticipants = async function(groupId, participants) {
+    const chat = await getChat(groupId, window.Astra.initializeEngine());
+    if (!chat) throw new Error("Group not found");
+    return await mutateParticipants(chat, participants, 'removeParticipants');
+  };
+
+  window.Astra.addParticipants = async function(groupId, participants) {
+    const chat = await getChat(groupId, window.Astra.initializeEngine());
+    if (!chat) throw new Error("Group not found");
+    return await mutateParticipants(chat, participants, 'addParticipants');
+  };
+
+  window.Astra.promoteParticipants = async function(groupId, participants) {
+    const chat = await getChat(groupId, window.Astra.initializeEngine());
+    if (!chat) throw new Error("Group not found");
+    return await mutateParticipants(chat, participants, 'promoteParticipants');
+  };
+
+  window.Astra.demoteParticipants = async function(groupId, participants) {
+    const chat = await getChat(groupId, window.Astra.initializeEngine());
+    if (!chat) throw new Error("Group not found");
+    return await mutateParticipants(chat, participants, 'demoteParticipants');
+  };
 
  window.Astra.setGroupSubject = async function(groupId, subject) {
   const Store = window.Astra.initializeEngine();
@@ -68,7 +111,7 @@ GROUP_CODE = r"""
 
  window.Astra.setGroupDescription = async function(groupId, description) {
   const Store = window.Astra.initializeEngine();
-  const chat = getChat(groupId, Store);
+  const chat = await getChat(groupId, Store);
   const chatWid = getWid(groupId, Store);
 
   // Generate new id with fallbacks for different WA versions
@@ -145,7 +188,7 @@ GROUP_CODE = r"""
   const chatWid = getWid(groupId, Store);
 
   // Prioritize WAGroupInviteQuery (mapped in base.py), then fallback to Store.GroupInvite (Legacy)
-  const InviteStore = Store.WAGroupInviteQuery || Store.WAGroupInvite || (window.Store && window.Store.GroupInvite) || Store.WAGroupInviteV4 || (window.Store && window.Store.GroupInviteV4) || Store.WAGroupQuery;
+  const InviteStore = Store.WAGroupInviteQuery || Store.WAGroupInvite || (window.Store && window.Store.GroupInvite) || Store.WAGroupInviteV4 || (window.Store && window.Store.GroupInviteV4) || Store.WAGroupQuery || Store.GroupInviteService;
 
   if (InviteStore) {
    if (InviteStore.fetchMexGroupInviteCode) {
@@ -165,8 +208,11 @@ GROUP_CODE = r"""
    } else if (InviteStore.queryGroupInviteV4) {
      const res = await InviteStore.queryGroupInviteV4(chatWid);
      return res.code || res;
+    } else if (InviteStore.getGroupInviteCode) {
+     const res = await InviteStore.getGroupInviteCode(chatWid);
+     return res.code || res;
+    }
    }
-  }
   throw new Error("GroupInvite module not found");
  };
 
@@ -220,13 +266,13 @@ GROUP_CODE = r"""
  window.Astra.getGroupInfo = async function(groupId) {
   const Store = window.Astra.initializeEngine();
   const chatWid = getWid(groupId, Store);
-  let c = getChat(groupId, Store) || (Store.ChatRepo && Store.ChatRepo.get(chatWid));
+  let c = await getChat(groupId, Store) || (Store.ChatRepo && Store.ChatRepo.get(chatWid));
 
   if (!c) {
    // Wait for chat to appear (race condition after creation)
    for (let i = 0; i < 5; i++) {
     await new Promise(r => setTimeout(r, 500));
-    c = getChat(groupId, Store) || (Store.ChatRepo && Store.ChatRepo.get(chatWid));
+    c = await getChat(groupId, Store) || (Store.ChatRepo && Store.ChatRepo.get(chatWid));
     if (c) break;
    }
   }

@@ -10,6 +10,7 @@ This module provides the MediaMethods mixin for the Astra Client.
 import logging
 import base64
 import os
+import asyncio
 from typing import Optional, Any, Callable, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -31,6 +32,7 @@ class MediaMethods:
   file_path: str,
   caption: Optional[str] = None,
   reply_to: Optional[str] = None,
+  document: bool = False,
   progress: Optional[Callable[[int, int], Any]] = None
  ) -> bool:
   """
@@ -40,10 +42,8 @@ class MediaMethods:
    raise FileNotFoundError(f"Media file not found: {file_path}")
 
   filename = os.path.basename(file_path)
-  logger.info(f"Preparing media: {filename}")
-
-  with open(file_path, "rb") as f:
-   data = base64.b64encode(f.read()).decode()
+  file_size = os.path.getsize(file_path)
+  logger.info(f"Preparing media: {filename} ({file_size} bytes)")
 
   import mimetypes
   mimetype, _ = mimetypes.guess_type(file_path)
@@ -54,19 +54,61 @@ class MediaMethods:
   if main_type not in ['image', 'video', 'audio']:
    main_type = 'document'
 
+  # Auto-Document Escalation: Files > 100MB are sent as documents to avoid WA video overhead
+  if file_size > 100 * 1024 * 1024:
+   logger.info(f"File size ({file_size}) exceeds 100MB. Escalating to document mode.")
+   document = True
+
   final_options = {"quotedMsgId": reply_to} if reply_to else {}
-  if main_type == 'document':
+  if main_type == 'document' or document:
+   main_type = 'document'
    final_options['asDocument'] = True
 
-  return await self._client.bridge.call("sendMedia", {
+  # Prepare the payload
+  payload = {
    "to": chat_id,
-   "data": data,
    "mimetype": mimetype,
    "type": main_type,
    "filename": filename,
    "caption": caption,
    "options": final_options
-  }, progress=progress)
+  }
+
+  # CHUNKED UPLOAD LOGIC (For files > 2MB)
+  CHUNK_THRESHOLD = 2 * 1024 * 1024 # 2MB
+  if file_size > CHUNK_THRESHOLD:
+   import uuid
+   upload_id = f"up_{uuid.uuid4().hex[:8]}"
+   logger.info(f"Starting chunked upload for {filename} [ID: {upload_id}]")
+   
+   await self._client.bridge.call("initChunkedUpload", {"id": upload_id, "size": file_size})
+   
+   chunk_size = 1024 * 1024 # 1MB chunks
+   sent_bytes = 0
+   with open(file_path, "rb") as f:
+    while True:
+     chunk_data = f.read(chunk_size)
+     if not chunk_data:
+      break
+     
+     chunk_b64 = base64.b64encode(chunk_data).decode()
+     await self._client.bridge.call("pushChunk", {"id": upload_id, "data": chunk_b64})
+     
+     sent_bytes += len(chunk_data)
+     if progress:
+      try:
+       is_coro = asyncio.iscoroutinefunction(progress) or asyncio.iscoroutine(progress)
+       if is_coro: await progress(sent_bytes, file_size)
+       else: progress(sent_bytes, file_size)
+      except: pass
+   
+   payload["uploadId"] = upload_id
+  else:
+   # Standard Upload (Small files)
+   with open(file_path, "rb") as f:
+    payload["data"] = base64.b64encode(f.read()).decode()
+
+  return await self._client.bridge.call("sendMedia", payload, progress=None if "uploadId" in payload else progress)
 
  async def download_media(self, message_id: str) -> str:
   """
@@ -107,17 +149,17 @@ class MediaMethods:
    logger.error(f"Download failed for {message_id}: {e}")
    raise e
   
- async def send_image(self, chat_id: str, file_path: str, caption: Optional[str] = None, reply_to: Optional[str] = None) -> Any:
+ async def send_image(self, chat_id: str, file_path: str, **kwargs) -> Any:
   """Sends an image file."""
-  return await self.send_file(chat_id, file_path, caption=caption, reply_to=reply_to)
+  return await self.send_file(chat_id, file_path, **kwargs)
 
- async def send_video(self, chat_id: str, file_path: str, caption: Optional[str] = None, reply_to: Optional[str] = None) -> Any:
+ async def send_video(self, chat_id: str, file_path: str, **kwargs) -> Any:
   """Sends a video file."""
-  return await self.send_file(chat_id, file_path, caption=caption, reply_to=reply_to)
+  return await self.send_file(chat_id, file_path, **kwargs)
 
- async def send_audio(self, chat_id: str, file_path: str, reply_to: Optional[str] = None) -> Any:
+ async def send_audio(self, chat_id: str, file_path: str, **kwargs) -> Any:
   """Sends an audio file."""
-  return await self.send_file(chat_id, file_path, reply_to=reply_to)
+  return await self.send_file(chat_id, file_path, **kwargs)
 
  async def send_sticker(self, chat_id: str, media: str, reply_to: Optional[str] = None) -> Any:
   """
@@ -125,8 +167,8 @@ class MediaMethods:
   Args:
    media: File path or Base64 string.
   """
-  # Check if it's a file path
-  if os.path.exists(media):
+  # Check if it's a file path (avoiding checks on long base64 strings)
+  if len(media) < 1000 and os.path.exists(media):
    return await self.send_file(chat_id, media, reply_to=reply_to)
   
   # Assume Base64/Raw data
@@ -136,7 +178,7 @@ class MediaMethods:
     "to": chat_id, 
     "data": media, 
     "mimetype": "image/webp", 
-    "type": "sticker", # Explicitly set type to sticker
+    "type": "sticker", 
     "options": {"quotedMsgId": reply_to} if reply_to else {}
    }
   )

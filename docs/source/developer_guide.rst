@@ -87,8 +87,30 @@ Adding a new bridge method
 Building docs
 -------------
 
+The documentation is built with Sphinx. The ``[dev]`` extras you installed
+above include Sphinx itself, but you will also need a theme such as
+``sphinx_rtd_theme`` which is used by the default configuration. There are
+two common user errors when running the build:
+
+* running the command from the wrong directory (you must be inside the
+  ``docs`` folder)
+* forgetting to install the theme, which leads to a ``ThemeError``
+
+Sphinx's default error message is a bit opaque; if you see "no theme named
+'sphinx_rtd_theme'", simply install it with:
+
 .. code-block:: bash
 
- cd docs
- sphinx-build -b html source _build/html
+ pip install sphinx_rtd_theme
+
+and rerun the build from the documentation root:
+
+.. code-block:: bash
+
+ cd docs              # change into the docs directory first
+ python3 -m sphinx -b html source _build/html
  open _build/html/index.html
+
+If the build succeeds, the generated HTML will appear under
+``docs/_build/html``. The ``open`` command works on macOS; use your
+preferred method on other platforms.

@@ -162,22 +162,36 @@ class Client:
   """Shortcut for client.media.send_sticker."""
   return await self.media.send_sticker(*args, **kwargs)
 
- async def send_video(self, *args, **kwargs) -> Message:
-  """Shortcut for client.media.send_video."""
-  return await self.media.send_video(*args, **kwargs)
+ async def send_video(self, chat_id: str, file_path: str, **kwargs) -> Message:
+  """Sends a video file with document fallback."""
+  try:
+   return await self.media.send_video(chat_id, file_path, **kwargs)
+  except Exception:
+   return await self.media.send_file(chat_id, file_path, document=True, **kwargs)
 
- async def send_audio(self, *args, **kwargs) -> Message:
-  """Shortcut for client.media.send_audio."""
-  return await self.media.send_audio(*args, **kwargs)
+ async def send_audio(self, chat_id: str, file_path: str, **kwargs) -> Message:
+  """Sends an audio file with document fallback."""
+  try:
+   return await self.media.send_audio(chat_id, file_path, **kwargs)
+  except Exception:
+   return await self.media.send_file(chat_id, file_path, document=True, **kwargs)
   
  
  async def delete_message(self, chat_id: str, message_id: str, everyone: bool = True) -> bool:
   """Shortcut for client.chat.delete_message."""
   return await self.chat.delete_message(message_id, everyone=everyone)
 
+ async def send_file(self, *args, **kwargs) -> bool:
+  """Backward compatibility alias for client.media.send_file."""
+  return await self.media.send_file(*args, **kwargs)
+
  async def download_media(self, *args, **kwargs) -> str:
   """Shortcut for client.media.download_media."""
   return await self.media.download_media(*args, **kwargs)
+
+ async def get_contact(self, contact_id: str) -> User:
+  """Shortcut for client.api.get_contact."""
+  return await self.api.get_contact(contact_id)
 
  # --- Core Operations ---
 
@@ -336,7 +350,7 @@ class Client:
 
  # --- Messaging API (Facade) ---
 
- async def send_message(self, to: str, text: str, reply_to: Optional[str] = None) -> Message:
+ async def send_message(self, to: str, text: str, reply_to: Optional[str] = None, **kwargs) -> Message:
   """
   Sends a text message to a chat.
 
@@ -344,8 +358,10 @@ class Client:
    to: The recipient's JID (e.g. '12345@c.us').
    text: The message content.
    reply_to: Optional message ID to quote.
+   **kwargs: Additional options like 'mentions'.
   """
   options = {"quotedMsgId": reply_to} if reply_to else {}
+  options.update(kwargs)
   return await self.api.send_text(to, text, options=options)
 
  async def react(self, chat_id: str, message_id: str, emoji: str) -> bool:
@@ -374,7 +390,7 @@ class Client:
 
  # --- Specialized Decorators ---
 
- def on_message(self, criteria: Optional[Any] = None):
+ def on_message(self=None, criteria: Optional[Any] = None):
   """
   Decorator for handling new messages.
   Supports both instance (@client.on_message) and class (@Client.on_message).
@@ -396,7 +412,7 @@ class Client:
    return self.on("message")(criteria)
   return self.on("message", criteria=criteria)
 
- def on_reaction(self, criteria: Optional[Any] = None):
+ def on_reaction(self=None, criteria: Optional[Any] = None):
   """
   Decorator for handling reactions.
   Supports both instance (@client.on_reaction) and class (@Client.on_reaction).
@@ -433,20 +449,29 @@ class Client:
 
   data = await self.bridge.call("getChatById", jid_str)
   if data and (data.get("isGroup") or data.get("isReadOnly")):
+   # If name is missing or "Unknown", try to use ID user part as title
+   if not data.get("name") or data.get("name") == "Unknown":
+    data["name"] = jid_str.split("@")[0]
    entity = Chat.from_payload(data, client=self)
   else:
    contact = await self.bridge.call("getContactById", jid_str)
    if not contact:
     # Fallback to a basic User payload if contact lookup fails
     contact = {"id": jid_str, "name": jid_str.split("@")[0]}
+   
+   # Robust name fallback for contacts too
+   if not contact.get("name") or contact.get("name") == "Unknown":
+    contact["name"] = jid_str.split("@")[0]
+    
    entity = User.from_payload(contact, client=self)
 
   self._entity_cache[jid_str] = entity
   return entity
 
  async def get_me(self) -> User:
-  """Returns the current authenticated user's profile."""
   data = await self.bridge.call("getMe")
+  if not data:
+   return User(id=JID.parse("0@c.us"), name="Unknown User", is_me=True, _client=self)
   return User.from_payload(data, client=self)
 
  def conversation(self, chat_id: str, timeout: float = 60.0) -> Conversation:

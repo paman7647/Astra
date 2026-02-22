@@ -137,13 +137,17 @@ class ProtocolBridge:
     is_recoverable = any(k in err_text for k in [
      "target closed", "target page", "not found",
      "execution context", "frame was detached",
+     "page closed", "navigation"
     ])
 
     if is_recoverable and attempt == 0:
-     # Silent self-heal
+     logger.warning(f"Bridge connection error: {err_text}. Attempting recovery...")
      healed = await self.ensure_bridge()
      if healed:
-      continue # Retry once
+      logger.info("Bridge recovery successful, retrying call...")
+      continue
+     else:
+      logger.error("Bridge recovery failed.")
 
     # Classify the error
     if "method not found" in err_text:
@@ -152,8 +156,8 @@ class ProtocolBridge:
      raise MessageTimeoutError(f"Call to '{method}' timed out.") from e
     elif "rate" in err_text or "too many" in err_text:
      raise RateLimitedError(f"Rate limited during '{method}'.") from e
-    elif "target closed" in err_text or "page" in err_text:
-     raise ConnectionLostError(f"Browser lost during '{method}'.") from e
+    elif "target closed" in err_text or "page has been closed" in err_text or "page closed" in err_text:
+     raise ConnectionLostError(f"Browser lost during '{method}'. Check if the WhatsApp tab was closed or reloaded.") from e
     else:
      raise BridgeCallError(f"'{method}' failed: {e}", cause=e, method=method) from e
    finally:
@@ -224,7 +228,10 @@ class ProtocolBridge:
    if call_id in self._progress_callbacks:
     cb = self._progress_callbacks[call_id]
     try:
-     cb(payload.get("current", 0), payload.get("total", 0))
+     if asyncio.iscoroutinefunction(cb) or asyncio.iscoroutine(cb):
+      await cb(payload.get("current", 0), payload.get("total", 0))
+     else:
+      cb(payload.get("current", 0), payload.get("total", 0))
     except Exception as e:
      logger.debug(f"Progress callback error: {e}")
    return

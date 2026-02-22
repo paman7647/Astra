@@ -51,6 +51,21 @@ class AccountMethods:
   except Exception as e:
    raise ProfileUpdateError(f"Failed to set about text: {e}") from e
 
+ async def update_profile_pic(self, media: str) -> bool:
+  """
+  Updates the profile picture.
+
+  Args:
+   media: Base64 encoded image data.
+
+  Raises:
+   ProfileUpdateError: [E5002] If the profile picture update failed.
+  """
+  try:
+   return await self._client.api.update_profile_pic(media)
+  except Exception as e:
+   raise ProfileUpdateError(f"Failed to update profile picture: {e}") from e
+
  async def post_status(self, text: str) -> bool:
   """
   Posts a text status update to your stories.

@@ -70,6 +70,56 @@ The recommended pattern is now ``async with``:
  + async with Client(session_id="bot") as client:
  +  # ... your code ...
 
+From v0.0.2b5 through v0.0.2b8
+------------------------------
+
+These rapid beta releases focused on stability, but a few API
+additions and behaviour changes may affect your code:
+
+* **New shortcut methods on ``Client``**: ``send_image``, ``send_video``,
+  ``send_audio``, ``send_sticker`` and ``delete_message`` are now
+  available directly on the client object. Existing code using
+  ``client.chat.send_message`` continues to work, but you can replace
+
+  .. code-block:: python
+
+    await client.chat.send_message(jid, "hi")
+  
+  with
+  
+  .. code-block:: python
+
+    await client.send_message(jid, "hi")
+
+* **Force fetch parameter**: ``client.fetch_messages`` and
+  ``client.chat.fetch_messages`` now accept a ``force=True`` keyword to
+  bypass the local cache. If you were manually clearing the cache to get
+  fresh data, you can drop that logic.
+
+* **Behaviour of ``.history`` and ``.fetch`` in plugins**: calls made
+  without quoting a message now return the last 10 messages rather than
+  raising a ``TypeError``. If you relied on the old error, wrap your call
+  with ``try/except``.
+
+* **Deprecation of ``has_media`` attribute** (continued from 0.0.1b4). Use
+  ``is_media`` throughout.
+
+* **Logging changes**: Plugin authors can now call ``Astra.log(...)`` from
+  within JS-executed code. See the "Bridge" section of
+  :doc:`design_and_architecture` for details.
+
+* **Plugin import convenience**: command modules may now use ``from . import *``
+  to automatically import public symbols such as ``Client`` and
+  ``Filters``. This simplifies third-party plugin templates.
+
+* **Cache behaviour**: By default ``use_cache`` is ``True``; you may set it
+  to ``False`` when creating a client if you want every fetch to hit the
+  bridge.
+
+These changes are additive and backwards-compatible in most cases, but
+we recommend running your test suite and watching for ``AttributeError``
+or ``TypeError`` during the upgrade.
+
 General migration tips
 ----------------------
 

@@ -20,18 +20,50 @@ window.Astra = window.Astra || {};
       if (wid.serialized) return wid.serialized;
       if (wid.id && typeof wid.id === 'string') return wid.id;
       if (wid.id && wid.id._serialized) return wid.id._serialized;
+      if (wid.user && wid.server) return `${wid.user}@${wid.server}`;
       if (wid.id) return wid.id;
       return String(wid);
     };
 
-    let s = {};
-    try {
-      if (msg.serialize && typeof msg.serialize === 'function') s = msg.serialize();
-      else if (msg.toJSON && typeof msg.toJSON === 'function') s = msg.toJSON();
-      else s = { ...msg };
-    } catch (e) { s = { ...msg }; }
+    const clean = (obj, depth = 0) => {
+      if (!obj || typeof obj !== 'object' || depth > 3) return obj;
+      if (obj instanceof Uint8Array || obj instanceof Blob || obj instanceof ArrayBuffer) return null;
+      
+      const result = Array.isArray(obj) ? [] : {};
+      const blacklist = [
+        'mediaData', 'mediaBlob', 'deprecatedMms3Url', 'data', 'buffer', 
+        'chunks', 'processedImage', 'mediaObject', 'stream', 'isStoreMsg',
+        '_events', 'client', 'collection', 'parent'
+      ];
+      
+      for (const key in obj) {
+        if (blacklist.includes(key) || (key.startsWith('_') && key !== '_serialized')) continue;
+        const val = obj[key];
+        if (typeof val === 'function') continue;
+        
+        if (typeof val === 'string') {
+          // Strict length limit: anything over 10KB is likely media data or bloat
+          if (val.length > 10240) continue;
+          result[key] = val;
+        } else if (typeof val === 'object' && val !== null) {
+          result[key] = clean(val, depth + 1);
+        } else {
+          result[key] = val;
+        }
+      }
+      return result;
+    };
 
-    // Ensure accurate identities
+    let base = {};
+    try {
+      if (msg.serialize && typeof msg.serialize === 'function') base = msg.serialize();
+      else if (msg.toJSON && typeof msg.toJSON === 'function') base = msg.toJSON();
+      else base = { ...msg };
+    } catch (e) { base = { ...msg }; }
+
+    let s = clean(base) || {};
+
+    // Ensure accurate identities (re-apply from original msg if needed)
     s.id = serializeWid(msg.id) || s.id;
     if (typeof s.id === 'object' && s.id._serialized) s.id = s.id._serialized;
 
@@ -82,6 +114,29 @@ window.Astra = window.Astra || {};
     s.ack = msg.ack !== undefined ? msg.ack : s.ack;
     s.isNewMsg = !!(msg.isNewMsg || s.isNewMsg);
     s.hasMedia = !!(s.hasMedia || ['image', 'video', 'audio', 'document', 'sticker', 'ptt'].includes(s.type));
+    s.subtype = msg.subtype;
+    s.recipients = (msg.recipients || msg.participants || []).map(r => serializeWid(r));
+
+    // Identity & Name Enrichment (Push-Based Resolution)
+    try {
+      let contactId = s.author || s.from;
+      // Normalization: Try both full and primary WIDs for companion/LID support
+      const getContact = (id) => window.Store && window.Store.Contact && window.Store.Contact.get(id);
+      
+      let sender = msg.authorObj || msg.senderObj || getContact(contactId);
+      
+      // If direct lookup fails and it's a suffixed JID (Companion/LID :x), try primary
+      if (!sender && contactId && contactId.includes(':') && contactId.includes('@')) {
+        const primaryId = contactId.split(':')[0] + '@' + contactId.split('@')[1];
+        sender = getContact(primaryId);
+      }
+
+      if (sender) {
+        s.senderName = sender.name || sender.formattedName || null;
+        s.pushname = sender.pushname || null;
+        s.verifiedName = sender.verifiedName || null;
+      }
+    } catch (e) { console.warn('[Astra] Name enrichment failed:', e); }
 
     // Enrichment: Capture quoted context if available for logic checks
     if (s.hasQuotedMsg && !s.quotedParticipant) {
@@ -103,9 +158,16 @@ window.Astra = window.Astra || {};
 
   window.Astra.serializeChat = (chat) => {
     if (!chat) return null;
+    const name = chat.name || chat.formattedTitle || chat.contact?.pushname || chat.contact?.name || chat.contact?.formattedName;
+    const fallbackId = chat.id?._serialized || chat.id || "";
+    const fallbackName = fallbackId.split('@')[0] || "Unknown Thread";
+    const finalName = name || fallbackName;
+    
+    console.log(`[Astra] serializeChat id=${fallbackId} name=${finalName} (raw_name=${name})`);
+    
     return {
-      id: chat.id._serialized || chat.id,
-      name: chat.name || chat.formattedTitle || chat.contact?.pushname || "",
+      id: fallbackId,
+      name: finalName,
       isGroup: !!chat.isGroup,
       isReadOnly: !!chat.isReadOnly,
       unreadCount: chat.unreadCount || 0,
@@ -122,21 +184,25 @@ window.Astra = window.Astra || {};
       const Store = window.Astra.initializeEngine();
       if (!input) return null;
       if (typeof input === 'object' && input._serialized) return input;
-      if (typeof input === 'object' && input.user && input.server) return input;
 
       const serialized = typeof input === 'string' ? input : (input._serialized || (input.toString ? input.toString() : String(input)));
-
-      if (!serialized || typeof serialized !== 'string' || !serialized.includes('@')) {
-        return null;
+      if (!serialized) return null;
+      
+      const wf = Store.WidFactory || Store.AddressFactory;
+      let wid;
+      if (!wf || !wf.createWid) {
+        // Hard fallback for basic Wid structure if Factory is missing
+        const parts = serialized.split('@');
+        wid = { 
+          user: parts[0], 
+          server: parts[1], 
+          _serialized: serialized
+        };
+      } else {
+        wid = wf.createWid(serialized);
       }
 
-      const wf = Store.WidFactory || Store.AddressFactory || (window.Store && (window.Store.WidFactory || window.Store.AddressFactory));
-      if (!wf || typeof wf.createWid !== 'function') {
-        console.error('[Astra] WidFactory.createWid unavailable');
-        return null;
-      }
-
-      return wf.createWid(serialized);
+      return wid;
     } catch (e) {
       console.error('[Astra] createWid failed:', e.message);
       return null;
@@ -146,22 +212,63 @@ window.Astra = window.Astra || {};
   window.Astra.getChat = async (wid, force = false) => {
     try {
       const Store = window.Astra.initializeEngine();
-      const chatWid = typeof wid === 'string' ? window.Astra.createWid(wid) : wid;
+      // Ensure we always have a string ID before trying to create a Wid
+      let chatId = '';
+      if (typeof wid === 'string') chatId = wid;
+      else if (wid && typeof wid === 'object') {
+          chatId = wid._serialized || wid.serialized || (wid.id && wid.id._serialized) || String(wid);
+      } else {
+          chatId = String(wid);
+      }
+      
+      let chatWid = window.Astra.createWid(chatId);
+      
       if (!chatWid) return null;
 
-      let chat = null;
-      if (!force) {
-        chat = Store.Chat ? Store.Chat.get(chatWid) : null;
-        if (!chat && Store.ChatRepo) chat = Store.ChatRepo.get(chatWid);
+      const getFromRepos = (w) => {
+        if (!Store.Chat) return null;
+        let c = Store.Chat.get(w);
+        if (!c && Store.ChatRepo) c = Store.ChatRepo.get(w);
+        return c;
+      };
+
+      console.log(`[Astra] getChat search start: ${chatId}`);
+      let chat = getFromRepos(chatWid);
+
+      // Fallback 1: Primary ID
+      if (!chat && chatId && chatId.includes(':')) {
+        const primaryId = chatId.split(':')[0] + '@' + chatId.split('@')[1];
+        console.log(`[Astra] getChat fallback 1 (primary): ${primaryId}`);
+        chatWid = window.Astra.createWid(primaryId);
+        chat = getFromRepos(chatWid);
       }
 
+      // Fallback 2: LID specific Repo discovery
+      if (!chat && chatId && chatId.includes('@lid')) {
+        console.log(`[Astra] getChat fallback 2 (LID Repo Check)`);
+        const lidRepo = Store.LidContact || window.Astra.mR.findModule(m => m && m.get && m.isLid && m.isLid(chatId)) || window.Astra.mR.findModule(m => m && m.isLid && m.isLid(chatId) && m.Chat);
+        if (lidRepo && typeof lidRepo.get === 'function') {
+           const lidObj = lidRepo.get(chatWid) || lidRepo.get(chatId);
+           if (lidObj && lidObj.chat) {
+             chat = lidObj.chat;
+             console.log(`[Astra] Found chat via LidContact Repo!`);
+           }
+        }
+      }
+
+      // Fallback 3: Authoritative Find
       if (!chat && Store.FindOrCreateChat && Store.FindOrCreateChat.findOrCreateLatestChat) {
+        console.log(`[Astra] getChat fallback 3 (findOrCreateLatestChat)`);
         try { chat = (await Store.FindOrCreateChat.findOrCreateLatestChat(chatWid))?.chat; } catch (e) { }
       }
 
       if (!chat && Store.Chat && Store.Chat.find) {
+        console.log(`[Astra] getChat fallback 4 (Chat.find)`);
         try { chat = await Store.Chat.find(chatWid); } catch (e) { }
       }
+
+      if (!chat) console.warn(`[Astra] getChat FAILED for ${chatId}`);
+      else console.log(`[Astra] getChat SUCCESS for ${chatId}`);
 
       return chat;
     } catch (e) {
@@ -183,18 +290,31 @@ window.Astra = window.Astra || {};
   window.Astra.getContactById = async (contactId) => {
     try {
       const Store = window.Astra.initializeEngine();
-      const contactWid = window.Astra.createWid(contactId);
+      let contactWid = window.Astra.createWid(contactId);
       if (!contactWid) return null;
 
-      let contact = Store.Contact.get(contactWid);
-      if (!contact && Store.Contact.find) {
+      let contact = Store.Contact ? Store.Contact.get(contactWid) : null;
+      
+      // Fallback 1: Suffixed JID (:x) -> primary
+      if (!contact && contactId.includes(':')) {
+        const primaryId = contactId.split(':')[0] + '@' + contactId.split('@')[1];
+        contactWid = window.Astra.createWid(primaryId);
+        contact = Store.Contact ? Store.Contact.get(contactWid) : null;
+      }
+
+      // Fallback 2: LID specific Repo
+      if (!contact && contactId.includes('@lid') && Store.LidContact) {
+        contact = Store.LidContact.get(contactWid);
+      }
+
+      if (!contact && Store.Contact && Store.Contact.find) {
         try { contact = await Store.Contact.find(contactWid); } catch (e) { }
       }
       if (!contact) return null;
 
       return {
-        id: contact.id._serialized,
-        name: contact.name || contact.pushname || contact.formattedName || contact.id.user,
+        id: contact.id?._serialized || contact.id,
+        name: contact.name || contact.pushname || contact.formattedName || contact.id?.user || "",
         isMyContact: !!contact.isMyContact,
         isUser: !!contact.isUser,
         isBusiness: !!contact.isBusiness,
@@ -234,8 +354,9 @@ window.Astra = window.Astra || {};
       const anchorId = targetOptions.msgId || targetOptions.message_id || targetOptions.id || null;
       const direction = targetOptions.direction === 'before' ? 'before' : 'after';
       const fromMe = targetOptions.fromMe !== undefined ? targetOptions.fromMe : targetOptions.from_me;
+      const includeAnchor = targetOptions.includeAnchor || targetOptions.include_anchor || false;
 
-      window.Astra.log(`Parameters: Anchor=${anchorId}, Dir=${direction}, Limit=${limit}`, 'info');
+      window.Astra.log(`Parameters: Anchor=${anchorId}, Dir=${direction}, Limit=${limit}, IncludeAnchor=${includeAnchor}`, 'info');
 
       if (!targetId) {
         window.Astra.log("Error: No targetId provided.", "error");
@@ -264,19 +385,24 @@ window.Astra = window.Astra || {};
 
       let msgs = [];
 
-      // Strategy 1: Local Cache (Only used for small tails or if engine query fails)
+      // Strategy 1: Local Cache
       const tryLocal = () => {
         if (anchorId) {
           window.Astra.log(`Strategy 1: Searching for anchor ${anchorId} locally...`);
           let anchorMsg = Store.Msg.get(anchorId);
-          if (!anchorMsg) anchorMsg = getLocalArray().find(m => m.id._serialized === anchorId);
+          if (!anchorMsg) {
+            const shortId = String(anchorId).split('_').pop();
+            anchorMsg = getLocalArray().find(m => m.id && (m.id._serialized === anchorId || m.id.id === anchorId || m.id.id === shortId));
+          }
 
           if (anchorMsg) {
             const all = getLocalArray().filter(isValidMsg);
             all.sort((a, b) => a.t - b.t);
-            const idx = all.findIndex(m => m.id._serialized === anchorId);
+            const shortId = String(anchorId).split('_').pop();
+            const idx = all.findIndex(m => m.id && (m.id._serialized === anchorId || m.id.id === anchorId || m.id.id === shortId));
             if (idx !== -1) {
-              const slice = (direction === 'after') ? all.slice(idx + 1, idx + 1 + limit) : all.slice(Math.max(0, idx - limit), idx);
+              const startIdx = includeAnchor ? idx : idx + 1;
+              const slice = (direction === 'after') ? all.slice(startIdx, startIdx + limit) : all.slice(Math.max(0, idx - limit), idx + (includeAnchor ? 1 : 0));
               window.Astra.log(`Strategy 1 found ${slice.length} messages near anchor.`);
               return slice;
             }
@@ -326,7 +452,15 @@ window.Astra = window.Astra || {};
           else if (Array.isArray(result)) found = result;
           else if (result && result.models) found = result.models;
           
-          return found.filter(isValidMsg);
+          window.Astra.log(`Strategy 2 found ${found.length} results before filtering.`);
+
+          let filtered = found.filter(isValidMsg);
+          if (anchorId && !includeAnchor) {
+            const shortId = String(anchorId).split('_').pop();
+            filtered = filtered.filter(m => !(m.id && (m.id._serialized === anchorId || m.id.id === anchorId || m.id.id === shortId)));
+          }
+          window.Astra.log(`Strategy 2 final count: ${filtered.length}`);
+          return filtered;
         } catch (e) {
           window.Astra.log(`Strategy 2 query failed: ${e.message}`, "warn");
           return [];
@@ -334,15 +468,13 @@ window.Astra = window.Astra || {};
       };
 
       // Logic Flow:
-      // If limit is small and no anchor, try local first for speed.
-      // If limit is > 10 or local failed/insufficient, use Strategy 2.
       if (!anchorId && limit <= 10) {
         msgs = tryLocal();
       }
 
       if (msgs.length < limit && Store.msgFindQuery) {
         window.Astra.log(`Strategy 2 trigger: Current count ${msgs.length} < limit ${limit}`);
-        const queryResults = await tryQuery(limit);
+        const queryResults = await tryQuery(limit + (anchorId ? 1 : 0));
         if (queryResults.length > 0) {
           msgs = queryResults.slice(0, limit);
         }
@@ -354,13 +486,18 @@ window.Astra = window.Astra || {};
         msgs = tryLocal();
       }
 
-      // Strategy 3: Direct Load (Special case for anchor deep history)
-      if (msgs.length === 0 && anchorId && Store.ConversationMsgs && Store.ConversationMsgs.loadEarlierMsgs) {
-        window.Astra.log("Strategy 3: Last resort loadEarlierMsgs...");
-        try {
-            await Store.ConversationMsgs.loadEarlierMsgs(chat);
-            msgs = tryLocal();
-        } catch (s3Err) { window.Astra.log(`Strategy 3 Failed: ${s3Err.message}`, "warn"); }
+      // Strategy 3: Direct Load (Historical before queries)
+      if (msgs.length === 0 && anchorId && direction === 'before' && Store.ConversationMsgs && Store.ConversationMsgs.loadEarlierMsgs) {
+        window.Astra.log("Strategy 3: Triggering loadEarlierMsgs for historical gap resolution.");
+        try { await Store.ConversationMsgs.loadEarlierMsgs(chat); } catch (e) { }
+        msgs = tryLocal();
+      }
+
+      // Strategy 4: Direct Load (Historical after queries)
+      if (msgs.length === 0 && anchorId && direction === 'after' && Store.ConversationMsgs && Store.ConversationMsgs.loadLaterMsgs) {
+        window.Astra.log("Strategy 4: Triggering loadLaterMsgs for historical gap resolution.");
+        try { await Store.ConversationMsgs.loadLaterMsgs(chat); } catch (e) { }
+        msgs = tryLocal();
       }
 
       window.Astra.log(`Final Result: Returning ${msgs.length}/${limit} messages.`, msgs.length >= limit ? "info" : "warn");
@@ -511,7 +648,7 @@ window.Astra = window.Astra || {};
       if (label.toLowerCase() === 'settings') {
         return ['settings', 'privacy', 'account', 'chats', 'help'].some(term => text.includes(term));
       }
-      return false;
+      return { total: 0, error: err.message };
     };
 
     let isOpen = checkIsOpen();
@@ -703,8 +840,20 @@ window.Astra = window.Astra || {};
 
   const engineRaid = function () {
     let webpackRequire = window.__w || window.require;
-    const chunkName = 'webpackChunkwhatsapp_web_client';
-    const chunk = window[chunkName] || window['webpackChunk_whatsapp_web_client'] || [];
+    const chunkNames = [
+      'webpackChunkwhatsapp_web_client',
+      'webpackChunk_whatsapp_web_client',
+      'webpackChunkwhatsapp_web_desktop_client',
+      'webpackChunk_whatsapp_web_desktop_client'
+    ];
+    let chunk = null;
+    for (const name of chunkNames) {
+      if (window[name]) {
+        chunk = window[name];
+        break;
+      }
+    }
+    if (!chunk) chunk = [];
 
     const capture = (e) => {
       if (!webpackRequire && e) {
@@ -819,6 +968,7 @@ window.Astra = window.Astra || {};
       PrivacyConstants: 'WAWebPrivacySettings',
       Settings: 'WAWebSetPushnameConnAction',
       StatusUtils: 'WAWebContactStatusBridge',
+      ProfilePicThumb: 'WAWebContactProfilePicThumbBridge',
       ProfilePicRepo: 'WAWebContactProfilePicThumbBridge',
       msgFindQuery: 'WAWebDBMessageFindLocal'
     };
@@ -879,6 +1029,7 @@ window.Astra = window.Astra || {};
       window.Store.MsgRepo = window.Store.Msg;
       window.Store.ContactRepo = window.Store.Contact;
       window.Store.ChatMeta = window.Store.ChatGetters || window.Store.Chat;
+      window.Store.AccountUtils = window.Store.PushnameAction || window.Store.AccountUtils;
 
       console.log('[Astra] Core aliases mapped.');
 
@@ -910,7 +1061,9 @@ window.Astra = window.Astra || {};
         'ConversationMsgs': 'WAWebChatLoadMessages',
         'SendClear': 'WAWebChatClearBridge',
         'SendDelete': 'WAWebDeleteChatAction',
-        'UploadUtils': 'WAWebUploadManager'
+        'UploadUtils': 'WAWebUploadManager',
+        'PushnameAction': 'WAWebSetPushnameConnAction',
+        'StatusV3Action': 'WAWebStatusV3Action'
       };
 
       for (const [alias, moduleName] of Object.entries(hardcodedModules)) {
@@ -942,13 +1095,19 @@ window.Astra = window.Astra || {};
         User: (m) => m.getMaybeMeLidUser || m.getMaybeMePnUser || m.getMePnUserOrThrow,
         WidFactory: (m) => m.createWid && m.asUserWidOrThrow,
         GroupCreate: (m) => m.createGroup && m.WAWebGroupCreateJob,
-        Status: (m) => (m.setMyStatus || m.updateStatus || m.postStatus || (typeof m === 'object' && Object.values(m).some(v => v && v.postStatus))) && (m.getStatusViewers || m.viewStatus || (typeof m === 'object' && Object.values(m).some(v => v && v.getStatusViewers))),
-        Settings: (m) => m.setPushname || (m.Conn && m.Conn.pushname),
-        StatusV3Action: (m) => m.postStatusV3 || m.sendStatusV3 || m.postStatus || m.sendTextStatus || (typeof m === 'object' && Object.values(m).some(v => v && (v.postStatusV3 || v.postStatus || v.sendTextStatus))),
+        ProfilePicThumb: (m) => m.requestProfilePicFromServer || (m.default && m.default.requestProfilePicFromServer),
+        StatusV3Action: (m) => m && (m.postStatusV3 || m.sendStatusV3 || m.postStatus || m.sendTextStatus || (typeof m === 'object' && Object.values(m).some(v => v && (v.postStatusV3 || v.postStatus || v.sendTextStatus)))),
+        StatusUtils: (m) => m && (m.postStatusV3 || m.sendStatusV3 || m.setMyStatus || m.postStatus || m.sendTextStatus || (typeof m === 'object' && Object.values(m).some(v => v && (v.postStatusV3 || v.postStatus || v.sendTextStatus)))),
+        Settings: (m) => m && (m.setPushname || (m.Conn && m.Conn.pushname) || (typeof m === 'object' && Object.values(m).some(v => v && v.setPushname))),
         PrivacySettings: (m) => m && (m.setPrivacyLastSeen || m.getPrivacyLastSeen || m.getPrivacyAbout || (typeof m === 'object' && Object.values(m).some(v => v && (v.setPrivacyLastSeen || v.setPrivacyAbout)))),
         Polls: (m) => m && (m.sendCreatePollMsgs || m.createPollMsg || m.postPoll || m.sendPoll || (typeof m === 'object' && Object.values(m).some(v => v && (v.sendCreatePollMsgs || v.sendPoll)))),
         BlockAction: (m) => m && (m.blockContact || m.blockUser) && (m.unblockContact || m.unblockUser),
-        AccountUtils: (m) => m && (m.setPushname || m.setAbout || m.setMyStatus)
+        AccountUtils: (m) => m && (m.setPushname || m.setAbout || m.setMyStatus),
+        GroupInvite: (m) => m && (m.sendGetGroupInviteCode || m.queryGroupInviteCode || m.fetchGroupInviteCode || m.queryGroupInvite || m.getGroupInviteCode),
+        GroupInviteV4: (m) => m && (m.queryGroupInviteV4 || m.sendGroupInviteMessage),
+        WAGroupInviteQuery: (m) => m && (m.fetchMexGroupInviteCode || m.queryGroupInviteCode),
+        GroupParticipants: (m) => m && m.addParticipants && m.promoteParticipants && m.removeParticipants,
+        GroupUtils: (m) => m && m.sendSetPicture && m.requestDeletePicture
       };
 
       for (let alias in engineHeuristics) {

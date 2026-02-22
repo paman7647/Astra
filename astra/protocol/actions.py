@@ -119,6 +119,18 @@ class EngineAPI:
   """Kicks participants from a group."""
   return await self._bridge.call("removeMembers", {"groupId": group_id, "participants": participants})
 
+ async def promote(self, group_id: str, participants: List[str]) -> bool:
+  """Promotes participants to admin in a group."""
+  return await self._bridge.call("promote", {"groupId": group_id, "participants": participants})
+
+ async def demote(self, group_id: str, participants: List[str]) -> bool:
+  """Demotes participants from admin in a group."""
+  return await self._bridge.call("demote", {"groupId": group_id, "participants": participants})
+
+ async def get_group_info(self, group_id: str) -> Dict[str, Any]:
+  """Retrieves detailed info about a group."""
+  return await self._bridge.call("getGroupInfo", group_id)
+
  async def get_invite_link(self, group_id: str) -> str:
   """Generates a group invite link."""
   return await self._bridge.call("getInviteLink", group_id)
@@ -169,6 +181,18 @@ class EngineAPI:
   """
   # Note: mapping is setAbout in js_engine.py
   return await self._bridge.call("setAbout", {"about": text})
+
+ async def update_profile_pic(self, media: str) -> bool:
+  """
+  Updates the authenticated user's profile picture.
+  """
+  return await self._bridge.call("updateProfilePic", {"data": media})
+
+ async def update_group_pic(self, group_id: str, media: str) -> bool:
+  """
+  Updates a group's profile picture.
+  """
+  return await self._bridge.call("updateGroupPic", {"groupId": group_id, "data": media})
 
  async def set_privacy(self, category: str, value: str) -> bool:
   """

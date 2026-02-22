@@ -159,15 +159,17 @@ class ChatMethods:
  async def fetch_messages(
   self,
   chat_id: str,
+  include_anchor: bool = False,
   **kwargs
  ) -> List[Message]:
   """
-  Loads chat messages with flexible options (limit, from_me, message_id, direction).
+  Loads chat messages with flexible options (limit, from_me, message_id, direction, include_anchor).
 
   Raises:
    ChatNotFoundError: [E3020] If the chat doesn't exist.
   """
   options = kwargs.copy()
+  options["includeAnchor"] = include_anchor
   # Map common aliases for JS bridge
   if "message_id" in options:
    options["msgId"] = options.pop("message_id")

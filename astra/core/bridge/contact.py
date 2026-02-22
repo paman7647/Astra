@@ -16,12 +16,6 @@ CONTACT_CODE = r"""
   return contacts.map(c => window.Astra.serializeContact(c));
  };
 
- window.Astra.getContactById = function(id) {
-  const Store = window.Astra.initializeEngine();
-  if (!Store.ContactRepo) return null;
-  const contact = Store.ContactRepo.get(id);
-  return contact ? window.Astra.serializeContact(contact) : null;
- };
 
  window.Astra.serializeContact = function(c) {
   if (!c) return null;

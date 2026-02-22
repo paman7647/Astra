@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.2b8] - 2026-02-22
+### Added
+- **PyPI Release (v0.0.2b8)**: Optimized core engine distribution for latest environment compatibility.
+### Fixed
+- **Bridge Reliability**: Fixed underlying bridge issues that were causing media downloaders (YouTube, Instagram, etc.) to fail.
+- **Group Command Execution**: Resolved protocol mismatches affecting group participant management.
+### Changed
+- **Stability Restoration**: Reverted engine-level logic modifications to ensure 100% parity with the original bridge specifications.
+- **Documentation Consistency**: Synchronized plugin metadata requirements to support enhanced help system parsing in the userbot wrapper.
+
 ## [0.0.2b7] - 2026-02-21
 ### Added
 - **Bridge-to-Python Logging**: Introduced `Astra.log` in the browser bridge, enabling real-time JS runtime logs to be streamed directly to the Python terminal.
