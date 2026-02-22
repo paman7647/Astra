@@ -77,8 +77,20 @@ DOWNLOAD_CODE = r"""
       try { msgIdObj = Store.MessageIdentity.fromString(msgId); } catch(e) {}
     }
 
-    const msg = repo.get(msgIdObj) || (await repo.getMessagesById([msgId]))?.messages?.[0];
-    if (!msg) return null;
+    let msg = repo.get(msgIdObj) || (await repo.getMessagesById([msgId]))?.messages?.[0];
+    
+    // Fallback: search by short ID if full ID lookup fails
+    if (!msg) {
+      const shortId = String(msgId).split('_').pop();
+      msg = repo.getModelsArray().find(m => 
+        m.id && (m.id._serialized === msgId || m.id.id === msgId || m.id.id === shortId || m.id.stanzaId === shortId)
+      );
+    }
+    
+    if (!msg) {
+      console.warn(`[Astra] retrieveMedia cannot find message ${msgId}`);
+      return null;
+    }
 
     let decryptedMedia = null;
 
