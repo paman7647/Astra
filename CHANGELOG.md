@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.2b12] - 2026-02-22
+### Changed
+- **Pairing UX**: Increased the phone pairing retry interval from 10s to 60s to give users ample time to input the code.
+- **Log Noise Reduction**: Reduced internal bridge protocol logs from INFO to DEBUG level to provide a cleaner console experience.
+
 ## [0.0.2b11] - 2026-02-22
 ### Added
 - **proot-distro Optimization**: Added `--disable-software-rasterizer` and forced hardware acceleration flags for better performance in emulated Linux environments.

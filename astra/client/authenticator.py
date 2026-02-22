@@ -75,8 +75,9 @@ class Authenticator:
                 # If we have a phone number, we prefer pairing over QR
                 if self._phone or self._use_pairing:
                     now = asyncio.get_event_loop().time()
-                    # Retry every 10 seconds if still on QR screen
-                    if not hasattr(self, "_last_pairing_attempt") or (now - self._last_pairing_attempt) > 10.0:
+                    # Retry every 60 seconds if still on QR screen
+                    # This gives the user enough time to input the code on their phone
+                    if not hasattr(self, "_last_pairing_attempt") or (now - self._last_pairing_attempt) > 60.0:
                         attempt = getattr(self, "_pairing_attempts", 0) + 1
                         self._pairing_attempts = attempt
                         self._last_pairing_attempt = now

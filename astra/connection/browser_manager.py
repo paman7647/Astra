@@ -311,7 +311,7 @@ class BrowserController:
   text = msg.text
   if " [Astra] " in text:
    # These are our internal bridge logs
-   logger.info(f"Engine: {text.split('[Astra]', 1)[1].strip()}")
+   logger.debug(f"Engine: {text.split('[Astra]', 1)[1].strip()}")
   elif msg.type == "error":
    # Real JS errors on the page
    if not any(x in text for x in ["SameSite", "Content-Security-Policy", "ErrorUtils"]):
