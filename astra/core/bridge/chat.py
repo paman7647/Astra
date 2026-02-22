@@ -217,8 +217,8 @@ CHAT_CODE = r"""
 
    throw new Error("No suitable edit implementation found in this WhatsApp version");
   } catch (e) {
-   console.error('[Astra] editMessage error:', e.message);
-   throw e;
+   console.error(`[Astra] editMessage error on msgId=${typeof msgId === 'object' ? msgId._serialized : msgId}:`, e.message);
+   throw new Error(`Astra editMessage failed: ${e.message}`);
   }
  };
 
