@@ -11,6 +11,7 @@ chat operations like sending messages, polls, and media.
 """
 
 import logging
+import asyncio
 import time
 from typing import Optional, List, Any, Dict, TYPE_CHECKING, Union
 from ...models import Message, Chat

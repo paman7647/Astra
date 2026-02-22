@@ -12,6 +12,7 @@ and provides a clean interface for interaction and content extraction.
 
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
+import asyncio
 import time
 from .user import JID
 from .enums import MessageType, MessageAck

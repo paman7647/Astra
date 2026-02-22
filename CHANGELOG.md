@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.2b14] - 2026-02-22
+### Fixed
+- **Performance**: Replaced synchronous `time.sleep` with `asyncio.sleep` in several core methods (`Message.edit`, `ChatMethods.edit_message`). This fixes the "Cannot edit message" error (E3006) by ensuring the event loop is never blocked during message acknowledgement.
+- **Reliability**: Updated `.ping` command to use `waitForSend=True`, ensuring the base message is fully acknowledged by WhatsApp before the second result-edit is attempted.
+
 ## [0.0.2b13] - 2026-02-22
 ### Changed
 - **Logging Supremacy**: Suppressed noisy `PROTOCOL` and internal bridge logs by moving them to the `DEBUG` level. This ensures the console remains clean for production use while maintaining detailed diagnostics in debug mode.
