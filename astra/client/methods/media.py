@@ -155,7 +155,7 @@ class MediaMethods:
   Returns: Absolute path to the saved file.
   """
   try:
-   from ..models.message import Message
+   from ...models.message import Message
    
    # 1. Normalize Message ID
    mid = message_id.id if isinstance(message_id, Message) else str(message_id)
