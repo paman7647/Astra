@@ -106,7 +106,7 @@ class ChatMethods:
  async def edit_message(self, message_id: str, text: str) -> bool:
   try:
    # Mandatory 0.5s delay to keep message edits stable and avoid rate limits
-   time.sleep(0.5)
+   await asyncio.sleep(0.5)
    return await self._client.api.edit_message(message_id, text)
   except Exception as e:
    raise MessageEditError(f"Failed to edit {message_id}: {e}") from e
