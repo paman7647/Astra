@@ -15,7 +15,7 @@ from .serializers import DataTransformer
 from ..errors import MessageEditError
 from ..models import Message, Chat, User
 
-logger = logging.getLogger("Astra.Engine")
+logger = logging.getLogger("Engine")
 
 class EngineAPI:
  """

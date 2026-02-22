@@ -11,7 +11,7 @@ These values define the framework's behavior, timeouts, and selectors.
 import os
 
 # --- Framework Metadata ---
-VERSION = "0.0.2b15"
+VERSION = "0.0.2b18"
 DEFAULT_USER_AGENT = (
  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
  "Chrome/122.0.0.0 Safari/537.36"
@@ -19,7 +19,7 @@ DEFAULT_USER_AGENT = (
 
 # --- Connectivity & URLs ---
 WHATSAPP_URL = "https://web.whatsapp.com"
-SESSION_STORAGE_PATH = os.path.join(os.getcwd(), ".astra_sessions")
+SESSION_STORAGE_PATH = os.path.expanduser("~/.astra_sessions")
 LOCAL_CACHE_DB = "astra_cache.db"
 
 # --- Engine Configuration ---

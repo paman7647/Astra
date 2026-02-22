@@ -22,7 +22,7 @@ from ..errors import (
 from ..constants import BRIDGE_NAMESPACE, PROTOCOL_CALL_TIMEOUT
 from .js_engine import JS_ENGINE_SOURCE
 
-logger = logging.getLogger("Astra.Protocol")
+logger = logging.getLogger("Bridge")
 
 class ProtocolBridge:
  """
@@ -68,7 +68,8 @@ class ProtocolBridge:
     await self._process_event(name, payload)
 
    await self._page.expose_function("astra_uplink", astra_uplink_py)
-   logger.info("Bridge uplink exposed successfully.")
+   if os.getenv("DEBUG", "false").lower() == "true":
+        logger.info("Bridge uplink exposed.")
   except Exception as e:
    logger.debug(f"Uplink Already Exposed: {e}")
 
@@ -144,7 +145,7 @@ class ProtocolBridge:
      logger.warning(f"Bridge connection error: {err_text}. Attempting recovery...")
      healed = await self.ensure_bridge()
      if healed:
-      logger.info("Bridge recovery successful, retrying call...")
+      logger.info("Bridge recovered, retrying...")
       continue
      else:
       logger.error("Bridge recovery failed.")

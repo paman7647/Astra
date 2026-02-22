@@ -7,7 +7,7 @@ import asyncio
 import logging
 from typing import Callable, Any
 
-logger = logging.getLogger("Astra.Tasks")
+logger = logging.getLogger("Scheduler")
 
 
 class Scheduler:

@@ -12,7 +12,7 @@ import asyncio
 import logging
 from typing import Dict, Awaitable
 
-logger = logging.getLogger("Astra.System")
+logger = logging.getLogger("Supervisor")
 
 class TaskSupervisor:
  """

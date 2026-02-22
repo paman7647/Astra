@@ -20,7 +20,7 @@ from .context import EventContext
 
 from ..protocol.serializers import DataTransformer
 
-logger = logging.getLogger("Astra.Events")
+logger = logging.getLogger("Events")
 
 @dataclass
 class EventSubscription:

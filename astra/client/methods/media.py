@@ -16,7 +16,7 @@ from typing import Optional, Any, Callable, TYPE_CHECKING
 if TYPE_CHECKING:
  from ..client import Client
 
-logger = logging.getLogger("Astra.Media")
+logger = logging.getLogger("Media")
 
 class MediaMethods:
  """
@@ -43,7 +43,7 @@ class MediaMethods:
 
   filename = os.path.basename(file_path)
   file_size = os.path.getsize(file_path)
-  logger.info(f"Preparing media: {filename} ({file_size} bytes)")
+  logger.debug(f"Preparing media: {filename} ({file_size} bytes)")
 
   import mimetypes
   mimetype, _ = mimetypes.guess_type(file_path)
@@ -79,7 +79,7 @@ class MediaMethods:
   if file_size > CHUNK_THRESHOLD:
    import uuid
    upload_id = f"up_{uuid.uuid4().hex[:8]}"
-   logger.info(f"Starting chunked upload for {filename} [ID: {upload_id}]")
+   logger.info(f"Uploading {filename}...")
    
    await self._client.bridge.call("initChunkedUpload", {"id": upload_id, "size": file_size})
    
@@ -146,7 +146,7 @@ class MediaMethods:
      
    return result
   except Exception as e:
-   logger.error(f"Download failed for {message_id}: {e}")
+   logger.info(f"Download failed for {message_id}: {e}")
    raise e
   
  async def send_image(self, chat_id: str, file_path: str, **kwargs) -> Any:

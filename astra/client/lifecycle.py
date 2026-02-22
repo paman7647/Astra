@@ -12,7 +12,7 @@ from enum import Enum, auto
 import logging
 from astra.models import ClientStatus
 
-logger = logging.getLogger("Astra.Status")
+logger = logging.getLogger("Status")
 
 class LifeCycleController:
  """
@@ -34,7 +34,7 @@ class LifeCycleController:
    return
 
   self._current_status = new_status
-  logger.info(f"Client state changed: {old_status.name} -> {new_status.name}")
+  logger.debug(f"State: {old_status.name} -> {new_status.name}")
 
  def is_ready(self) -> bool:
   """Returns True if the client is fully initialized and operational."""

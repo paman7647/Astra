@@ -16,7 +16,7 @@ from playwright.async_api import Page
 from ..constants import SELECTORS
 from ..errors import LoginFailedError
 
-logger = logging.getLogger("Astra.Connection")
+logger = logging.getLogger("Browser")
 
 class PageMonitor:
  """

@@ -16,7 +16,7 @@ import sqlite3
 import logging
 from typing import Optional, List, Dict, Any
 
-logger = logging.getLogger("Astra.SessionStore")
+logger = logging.getLogger("Storage")
 
 
 class SessionStore:
@@ -143,8 +143,24 @@ class SessionStore:
 
  def clear_session_meta(self):
   """Clears session metadata on logout."""
-  self._conn.execute("DELETE FROM meta WHERE key IN ('session_id', 'phone', 'wa_version', 'pid', 'started_at')")
+  self._conn.execute("DELETE FROM meta WHERE key IN ('session_id', 'phone', 'wa_version', 'pid', 'started_at', 'session_cookies', 'session_ls')")
   self._conn.commit()
+
+ def save_session_state(self, cookies: list, localStorage: dict):
+  """Saves the encrypted-ready browser state for recovery."""
+  self.set_meta("session_cookies", json.dumps(cookies))
+  self.set_meta("session_ls", json.dumps(localStorage))
+  logger.debug("Browser session state backed up to SQLite.")
+
+ def get_session_state(self) -> dict:
+  """Retrieves the last backed up browser state."""
+  cookies_json = self.get_meta("session_cookies")
+  ls_json = self.get_meta("session_ls")
+  
+  return {
+   "cookies": json.loads(cookies_json) if cookies_json else [],
+   "localStorage": json.loads(ls_json) if ls_json else {}
+  }
 
  # ── Chat Operations ────────────────────────────────────────
 

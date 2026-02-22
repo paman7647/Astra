@@ -17,7 +17,7 @@ from ...errors import (
 if TYPE_CHECKING:
  from ..client import Client
 
-logger = logging.getLogger("Astra.Account")
+logger = logging.getLogger("Account")
 
 class AccountMethods:
  """
@@ -37,6 +37,7 @@ class AccountMethods:
   try:
    return await self._client.api.set_profile_name(name)
   except Exception as e:
+   logger.info(f"Failed to set profile name: {e}")
    raise ProfileUpdateError(f"Failed to set profile name: {e}") from e
 
  async def set_about_text(self, text: str) -> bool:
@@ -49,6 +50,7 @@ class AccountMethods:
   try:
    return await self._client.api.set_about_text(text)
   except Exception as e:
+   logger.info(f"Failed to set about text: {e}")
    raise ProfileUpdateError(f"Failed to set about text: {e}") from e
 
  async def update_profile_pic(self, media: str) -> bool:
@@ -64,6 +66,7 @@ class AccountMethods:
   try:
    return await self._client.api.update_profile_pic(media)
   except Exception as e:
+   logger.info(f"Failed to update profile picture: {e}")
    raise ProfileUpdateError(f"Failed to update profile picture: {e}") from e
 
  async def post_status(self, text: str) -> bool:
@@ -76,6 +79,7 @@ class AccountMethods:
   try:
    return await self._client.api.send_status(text)
   except Exception as e:
+   logger.info(f"Failed to post status: {e}")
    raise StatusPostError(f"Failed to post status: {e}", cause=e) from e
 
  async def set_last_seen(self, value: str) -> bool:
