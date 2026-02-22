@@ -9,7 +9,7 @@ Astra - The WhatsApp Userbot Framework.
 This module provides the main Client class, which is your primary
 interface for interacting with WhatsApp.
 """
-
+print("ASTRA USE$R")
 import os
 import json
 import logging
