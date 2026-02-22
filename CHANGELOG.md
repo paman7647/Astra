@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.2b10] - 2026-02-22
+### Fixed
+- **PyPI Release Consistency**: Finalized version string synchronization across documentation, code, and distribution metadata to resolve installation ambiguities.
+- **Rollback Parity**: Confirmed stable phone pairing logic is correctly packaged for both macOS and Linux environments.
+
 ## [0.0.2b9] - 2026-02-22
 ### Added
 - **Linux Stability Optimization**: Implemented a modern Linux-based Chromium User Agent to prevent 400 "Failed to load resource" errors on VPS environments.
