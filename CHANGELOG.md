@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.2b9] - 2026-02-22
+### Added
+- **Linux Stability Optimization**: Implemented a modern Linux-based Chromium User Agent to prevent 400 "Failed to load resource" errors on VPS environments.
+- **Enhanced Browser Launch Args**: Added `--disable-web-security` and site-isolation overrides in `browser_manager.py` for improved cross-origin resource loading on Linux.
+### Fixed
+- **Phone Pairing Trigger**: Resolved an issue where pairing code generation would fail or fallback to QR in certain network conditions.
+- **Session Consistency**: Ensured the stable phone pairing method is preserved for high-fidelity authentication.
+
 ## [0.0.2b8] - 2026-02-22
 ### Added
 - **PyPI Release (v0.0.2b8)**: Optimized core engine distribution for latest environment compatibility.
