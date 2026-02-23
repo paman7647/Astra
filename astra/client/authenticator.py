@@ -98,8 +98,8 @@ class Authenticator:
                 return True
             
             if state == "LOGIN_QR":
-                # If we have a phone number, we prefer pairing over QR
-                if self._phone or self._use_pairing:
+                # Only trigger pairing if explicitly requested
+                if self._use_pairing:
                     now = asyncio.get_event_loop().time()
                     # Retry every 60 seconds if still on QR screen
                     # This gives the user enough time to input the code on their phone

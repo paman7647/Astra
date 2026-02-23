@@ -9,7 +9,7 @@ Astra - The WhatsApp Userbot Framework.
 This module provides the main Client class, which is your primary
 interface for interacting with WhatsApp.
 """
-print("ASTRA USE$R")
+
 import os
 import json
 import logging
@@ -82,7 +82,7 @@ class Client:
   # 1. Configuration
   self.session_id = session_id
   self.session_path = os.path.join(SESSION_STORAGE_PATH, session_id)
-  self.phone = phone or os.getenv("PHONE_NUMBER")
+  self.phone = phone or os.getenv("PHONE_NUMBER") or os.getenv("BOT_OWNER_ID")
   self.headless = headless
   self._show_banner = show_banner
   self.use_cache = use_cache
@@ -98,10 +98,10 @@ class Client:
 
   # 4. Authentication
   pairing_env = os.getenv("ASTRA_PHONE_PAIRING") or os.getenv("PHONEPAIRING")
-  if not self.phone:
-   raise ValueError("Configuration Error: 'phone' number is now mandatory for all login methods (including QR) for verification purposes. Please set PHONE_NUMBER env var or pass phone='...' to Client().")
-
   self.use_pairing = (pairing_env.lower() == "true") if pairing_env else False
+  
+  if not self.phone:
+   raise ValueError("Configuration Error: Either 'PHONE_NUMBER' or 'BOT_OWNER_ID' must be provided for verification. Please set them in your environment or pass phone='...' to Client().")
   # Pairing mode is optional, but phone number is now required
   self.authenticator = Authenticator(self.browser, self.phone, use_pairing=self.use_pairing)
 
@@ -719,7 +719,7 @@ class Client:
  IP   \033[1m{ip}\033[0m
  Headless \033[1m{self.headless}\033[0m
  PID  \033[1m{os.getpid()}\033[0m
- Auth  \033[1m{'Phone pairing' if self.phone else 'QR code'}\033[0m
+ Auth  \033[1m{'Phone pairing' if self.use_pairing else 'QR code'}\033[0m
 \033[96m╚══════════════════════════════════════════════════╝\033[0m
 """)
 
