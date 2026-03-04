@@ -119,11 +119,18 @@ DOWNLOAD_CODE = r"""
 
     // Chunking Cache
     const streamId = `media_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    window.Astra.mediaCache[streamId] = decryptedMedia;
+    
+    // Ensure decryptedMedia is Uint8Array to support .subarray() in chunking
+    let finalBuffer = decryptedMedia;
+    if (decryptedMedia instanceof ArrayBuffer) {
+      finalBuffer = new Uint8Array(decryptedMedia);
+    }
+    
+    window.Astra.mediaCache[streamId] = finalBuffer;
 
     return {
       streamId: streamId,
-      length: decryptedMedia.byteLength,
+      length: finalBuffer.byteLength,
       mimetype: msg.mimetype,
       filename: msg.filename,
       filesize: msg.size
