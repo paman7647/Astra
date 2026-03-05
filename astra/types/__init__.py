@@ -4,11 +4,13 @@
 # -----------------------------------------------------------
 
 """
-Backward compatibility: astra.models → astra.types
+Astra Types: Strongly-typed data structures for the WhatsApp ecosystem.
 """
 
-from ..types import *
-from ..types import JID, User, Chat, Message, SessionState, ClientStatus, MessageType, MessageAck
+from .user import JID, User
+from .chat import Chat
+from .message import Message
+from .enums import SessionState, ClientStatus, MessageType, MessageAck
 
 __all__ = [
  "JID",

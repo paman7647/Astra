@@ -4,11 +4,8 @@
 # -----------------------------------------------------------
 
 """
-Astra Utilities: Internal helper functions for health, media, and reliability.
+Backward compatibility: astra.utils → astra.helpers
 """
 
-from .health import HealthMonitor
-from .media import get_ffmpeg_path, convert_to_mp4
-from .task_supervisor import TaskSupervisor
-
-__all__ = ["HealthMonitor", "get_ffmpeg_path", "convert_to_mp4", "TaskSupervisor"]
+from ..helpers import *
+from ..helpers import HealthMonitor, get_ffmpeg_path, convert_to_mp4, TaskSupervisor

@@ -292,6 +292,19 @@ class ErrorCode(Enum):
   "This action requires admin privileges.",
   False
  )
+ GRP_MEMBERSHIP_FAILED = _CodeDef(
+  "E4021", "Group",
+  "Failed to process membership request.",
+  "You must be a group admin to approve or reject join requests.",
+  False
+ )
+
+ CALL_REJECT_FAILED = _CodeDef(
+  "E4030", "Call",
+  "Failed to reject incoming call.",
+  "The call may have already ended or the required modules are unavailable.",
+  False
+ )
 
  # ── E5xxx · Account & Profile ──────────────────────────
  ACCT_PROFILE_READ = _CodeDef(

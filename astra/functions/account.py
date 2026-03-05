@@ -84,25 +84,29 @@ ACCOUNT_CODE = r"""
   }
  };
 
- window.Astra.getGroupInviteLink = async (chatId) => {
-  const Store = window.Astra.initializeEngine();
-  const wid = window.Astra.createWid(chatId);
-  if (Store.GroupInviteMex && Store.GroupInviteMex.fetchGroupInviteCode) {
-   return await Store.GroupInviteMex.fetchGroupInviteCode(wid);
-  }
-  if (Store.GroupInvite && Store.GroupInvite.sendGetGroupInviteCode) {
-   return await Store.GroupInvite.sendGetGroupInviteCode(wid);
-  }
-  return null;
- };
-
-  window.Astra.joinGroupViaLink = async (code) => {
+  window.Astra.getGroupInviteLink = async (chatId) => {
+   return await window.Astra.withLock(async () => {
    const Store = window.Astra.initializeEngine();
-   if (Store.GroupInvite && Store.GroupInvite.sendJoinGroupViaInvite) {
-    return await Store.GroupInvite.sendJoinGroupViaInvite(code);
+   const wid = window.Astra.createWid(chatId);
+   if (Store.MexGroupInvite && Store.MexGroupInvite.fetchGroupInviteCode) {
+    return await Store.MexGroupInvite.fetchMexGroupInviteCode(wid);
+   }
+   if (Store.GroupInvite && Store.GroupInvite.sendGetGroupInviteCode) {
+    return await Store.GroupInvite.sendGetGroupInviteCode(wid);
    }
    return null;
+   });
   };
+
+   window.Astra.joinGroupViaLink = async (code) => {
+    return await window.Astra.withLock(async () => {
+    const Store = window.Astra.initializeEngine();
+    if (Store.GroupInvite && Store.GroupInvite.sendJoinGroupViaInvite) {
+     return await Store.GroupInvite.sendJoinGroupViaInvite(code);
+    }
+    return null;
+    });
+   };
 
   window.Astra.cropAndResizeImage = async (media, options = {}) => {
     const { data, mimetype } = media;
@@ -133,7 +137,9 @@ ACCOUNT_CODE = r"""
     return dataUrl.split(',')[1];
   };
 
-  window.Astra.setProfilePic = async (data) => {
+  window.Astra.updateProfilePic = async (data) => {
+    return await window.Astra.withLock(async () => {
+    console.log('[Astra] updateProfilePic: Starting with lock...');
     const Store = window.Astra.initializeEngine();
 
     const me = window.Astra.getIdentity();
@@ -180,10 +186,10 @@ ACCOUNT_CODE = r"""
     }
 
     throw new Error('Astra: No method found to set profile picture');
-  };
+    }); // end withLock
   };
 
-  window.Astra.updateProfileDOM = async (pushname) => {
+  window.Astra.setProfileName = async (pushname) => {
    const Store = window.Astra.initializeEngine();
    const mod = Store.AccountUtils || Store.Settings || Store.Perfil;
    if (mod && (mod.setPushname || mod.setMyPushname)) {
@@ -222,7 +228,7 @@ ACCOUNT_CODE = r"""
   return true;
  };
 
-  window.Astra.setStatusDOM = async (status) => {
+  window.Astra.setAbout = async (status) => {
    const Store = window.Astra.initializeEngine();
    const mod = Store.AccountUtils || Store.StatusUtils || Store.Perfil || Store.Settings;
    if (mod && (mod.setMyStatus || mod.setAbout || mod.setStatus)) {

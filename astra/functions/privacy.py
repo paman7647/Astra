@@ -8,6 +8,7 @@ PRIVACY_CODE = r"""
  window.Astra = window.Astra || {};
 
  window.Astra.setPrivacySetting = async (category, value) => {
+  return await window.Astra.withLock(async () => {
   const Store = window.Astra.initializeEngine();
 
   const methodMap = {
@@ -26,6 +27,7 @@ PRIVACY_CODE = r"""
 
   // Strategy 1: window.require() for known WA privacy modules
   const requireNames = [
+   'WAWebPrivacySettingsAction',
    'WAWebPrivacySettingsModel',
    'WAWebSetPrivacySettingsAction',
    'WAWebPrivacySettingsActions',
@@ -77,6 +79,7 @@ PRIVACY_CODE = r"""
 
   // Strategy 4: DOM-based fallback (uses confirmed live selectors)
   return await window.Astra.setPrivacySettingDOM(category, value);
+  }); // end withLock
  };
 
  // ──────────────────────────────────────────────────────────
@@ -245,10 +248,12 @@ PRIVACY_CODE = r"""
  };
 
  window.Astra.getPrivacySettings = async () => {
+  return await window.Astra.withLock(async () => {
   const Store = window.Astra.initializeEngine();
 
   // Try require() first
   const requireNames = [
+   'WAWebPrivacySettingsAction',
    'WAWebPrivacySettingsModel',
    'WAWebSetPrivacySettingsAction',
    'WAWebPrivacyModel'
@@ -297,7 +302,8 @@ PRIVACY_CODE = r"""
   }
 
   return { last_seen: null, profile_pic: null, about: null, status: null, read_receipts: null };
+  }); // end withLock
  };
 })();
 """
-""
+

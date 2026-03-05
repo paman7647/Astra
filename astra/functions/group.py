@@ -7,8 +7,27 @@ GROUP_CODE = r"""
 (function() {
  window.Astra = window.Astra || {};
 
- const getWid = (id, Store) => window.Astra.createWid(id);
- const getChat = async (id, Store) => await window.Astra.getChat(getWid(id, Store));
+  const getWid = (id, Store) => window.Astra.createWid(id);
+  const getChat = async (id, Store) => await window.Astra.getChat(getWid(id, Store));
+
+  // LID/PN Resolution (ported from newwp/src/util/Injected/Utils.js)
+  const enforceLidAndPnRetrieval = async (participantId) => {
+    try {
+      const Store = window.Astra.initializeEngine();
+      const wid = window.Astra.createWid(participantId);
+      if (!wid) return { lid: null, phone: null };
+      const ApiContact = window.require && window.require('WAWebApiContact');
+      if (ApiContact && typeof ApiContact.getPhoneNumber === 'function') {
+        const phone = wid.server === 'lid' ? ApiContact.getPhoneNumber(wid) : wid;
+        return { lid: wid, phone };
+      }
+      return { lid: wid, phone: wid };
+    } catch (e) {
+      console.warn('[Astra] enforceLidAndPnRetrieval failed:', e.message);
+      return { lid: null, phone: null };
+    }
+  };
+  window.Astra.enforceLidAndPnRetrieval = enforceLidAndPnRetrieval;
 
    const mutateParticipants = async function(chat, participants, funcName) {
     const Store = window.Astra.initializeEngine();
@@ -197,17 +216,17 @@ GROUP_CODE = r"""
   throw new Error("sendExitGroup not available in any module");
  };
 
- window.Astra.createGroup = async function(title, participants) {
-  const Store = window.Astra.initializeEngine();
+  window.Astra.createGroup = async function(groupId, participants) {
+   return await window.Astra.withLock(async () => {
+   const Store = window.Astra.initializeEngine();
   const pids = participants.map(p => {
-   const w = window.Astra.createWid(p);
-   if (!w) return null;
-   // Audited: expects { lid: Wid } or { phoneNumber: Wid }
-   return { phoneNumber: w, lid: w };
-  }).filter(w => !!w);
+    const w = window.Astra.createWid(p);
+    if (!w) return null;
+    return { phoneNumber: w, lid: w };
+   }).filter(w => !!w);
 
-  const meta = {
-   'title': title,
+   const meta = {
+    'title': groupId,
    'addressingModeOverride': 'lid',
    'memberAddMode': false,
    'membershipApprovalMode': false,
@@ -223,16 +242,25 @@ GROUP_CODE = r"""
   if (!createFn) throw new Error("createGroup method not found");
 
   const res = await createFn.call(GroupCreate, meta, pids);
-  const wid = res.wid ? res.wid._serialized : (res.id ? res.id._serialized : (res._serialized || res));
-  return wid;
- };
+   const wid = res.wid ? res.wid._serialized : (res.id ? res.id._serialized : (res._serialized || res));
+   return wid;
+   }); // end withLock
+  };
 
  window.Astra.getInviteCode = async function(groupId) {
   const Store = window.Astra.initializeEngine();
   const chatWid = getWid(groupId, Store);
 
-  // Prioritize WAGroupInviteQuery (mapped in base.py), then fallback to Store.GroupInvite (Legacy)
-  const InviteStore = Store.WAGroupInviteQuery || Store.WAGroupInvite || (window.Store && window.Store.GroupInvite) || Store.WAGroupInviteV4 || (window.Store && window.Store.GroupInviteV4) || Store.WAGroupQuery || Store.GroupInviteService;
+   // Prioritize Store.MexGroupInvite (mapped from WAWebMexFetchGroupInviteCodeJob in base.py)
+   const MexInvite = Store.MexGroupInvite;
+   if (MexInvite && typeof MexInvite.fetchMexGroupInviteCode === 'function') {
+    console.log('[Astra] Using MexGroupInvite.fetchMexGroupInviteCode');
+    const res = await MexInvite.fetchMexGroupInviteCode(groupId);
+    return res?.code || res;
+   }
+
+   // Legacy fallback chain
+   const InviteStore = Store.WAGroupInviteQuery || Store.WAGroupInvite || (window.Store && window.Store.GroupInvite) || Store.WAGroupInviteV4 || (window.Store && window.Store.GroupInviteV4) || Store.WAGroupQuery || Store.GroupInviteService;
 
   if (InviteStore) {
    if (InviteStore.fetchMexGroupInviteCode) {
@@ -279,38 +307,45 @@ GROUP_CODE = r"""
  };
 
  // Simplified without image crop for now - expecting base64 from python
- window.Astra.setGroupPicture = async function(groupId, thumb, picture) {
-   const Store = window.Astra.initializeEngine();
-   const chatWid = getWid(groupId, Store);
+  window.Astra.updateGroupPic = async function(groupId, data) {
+    return await window.Astra.withLock(async () => {
+    const Store = window.Astra.initializeEngine();
+    const chatWid = getWid(groupId, Store);
+    
+    console.log('[Astra] updateGroupPic: Resizing and setting group PFP...');
+    const media = { data, mimetype: 'image/jpeg' };
+    const thumb = await window.Astra.cropAndResizeImage(media, { size: 96, asDataUrl: true });
+    const full = await window.Astra.cropAndResizeImage(media, { size: 640, asDataUrl: true });
 
-   // Strategy 1: Store.GroupUtils.sendSetPicture
-   if (Store.GroupUtils && typeof Store.GroupUtils.sendSetPicture === 'function') {
-    await Store.GroupUtils.sendSetPicture(chatWid, thumb, picture);
-    return true;
-   }
+    // Strategy 1: Store.GroupUtils.sendSetPicture
+    if (Store.GroupUtils && typeof Store.GroupUtils.sendSetPicture === 'function') {
+     await Store.GroupUtils.sendSetPicture(chatWid, thumb, full);
+     return true;
+    }
 
    // Strategy 2: Runtime scan
    try {
      const engineRaid = window.Astra.mR;
      if (engineRaid && engineRaid.findModule) {
        const picModule = engineRaid.findModule(m => m && typeof m.sendSetPicture === 'function');
-       if (picModule) {
-         await picModule.sendSetPicture(chatWid, thumb, picture);
-         return true;
-       }
+        if (picModule) {
+          await picModule.sendSetPicture(chatWid, thumb, full);
+          return true;
+        }
      }
    } catch (e) {
      console.warn('[Astra] Runtime scan for sendSetPicture failed:', e.message);
    }
 
    // Strategy 3: ProfilePicRepo.setPicture
-   if (Store.ProfilePicRepo && typeof Store.ProfilePicRepo.setPicture === 'function') {
-     await Store.ProfilePicRepo.setPicture(chatWid, thumb, picture);
-     return true;
-   }
-
-   throw new Error("sendSetPicture not found in any module");
- };
+    if (Store.ProfilePicRepo && typeof Store.ProfilePicRepo.setPicture === 'function') {
+      await Store.ProfilePicRepo.setPicture(chatWid, thumb, full);
+      return true;
+    }
+ 
+    throw new Error("sendSetPicture not found in any module");
+    }); // end withLock
+  };
 
  window.Astra.deleteGroupPicture = async function(groupId) {
    const Store = window.Astra.initializeEngine();

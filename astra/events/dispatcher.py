@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from .filters import Criterion
 from .context import EventContext
 
-from ..protocol.serializers import DataTransformer
+from ..network.serializers import DataTransformer
 
 logger = logging.getLogger("Events")
 

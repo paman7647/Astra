@@ -177,7 +177,7 @@ class GroupMethods:
  async def get_info(self, group_id: str) -> GroupInfo:
   """Retrieves detailed info about a group."""
   try:
-   from ...protocol.serializers import DataTransformer
+   from ...network.serializers import DataTransformer
    raw = await self._client.api.get_group_info(group_id)
    return DataTransformer.to_group_info(raw)
   except Exception as e:

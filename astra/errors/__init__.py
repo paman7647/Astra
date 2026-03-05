@@ -58,6 +58,11 @@ from .exceptions import (
  GroupJoinError,
  GroupInfoError,
  GroupSettingsError,
+ MembershipRequestError,
+ CallRejectError,
+ MessageForwardError,
+ MessagePinError,
+ ChatClearError,
  # E5xxx · Account
  ProfileReadError,
  ProfileUpdateError,
@@ -103,6 +108,8 @@ __all__ = [
  # E4xxx
  "GroupCreateError", "GroupMemberError", "GroupPermissionError",
  "GroupJoinError", "GroupInfoError", "GroupSettingsError",
+ "MembershipRequestError", "CallRejectError",
+ "MessageForwardError", "MessagePinError", "ChatClearError",
  # E5xxx
  "ProfileReadError", "ProfileUpdateError", "StatusPostError",
  "PrivacyError", "BlockError",

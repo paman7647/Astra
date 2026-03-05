@@ -210,24 +210,42 @@ class MediaMethods:
   """Sends an audio file."""
   return await self.send_file(chat_id, file_path, **kwargs)
 
- async def send_sticker(self, chat_id: str, media: str, reply_to: Optional[str] = None) -> Any:
+ async def send_sticker(
+  self,
+  chat_id: str,
+  media: str,
+  name: Optional[str] = None,
+  pack: Optional[str] = None,
+  reply_to: Optional[str] = None
+ ) -> Any:
   """
-  Sends a sticker. 
+  Sends a sticker with optional metadata.
   Args:
    media: File path or Base64 string.
+   name: Sticker pack name (Sticker Name).
+   pack: Sticker pack publisher (Author).
   """
+  options = {"quotedMsgId": reply_to} if reply_to else {}
+  if name or pack:
+   options.update({
+    "stickerName": name or "Astra Pack",
+    "stickerAuthor": pack or "Astra Userbot"
+   })
+
   # Check if it's a file path (avoiding checks on long base64 strings)
   if len(media) < 1000 and os.path.exists(media):
-   return await self.send_file(chat_id, media, reply_to=reply_to)
+   with open(media, "rb") as f:
+    data = base64.b64encode(f.read()).decode()
+  else:
+   data = media
   
-  # Assume Base64/Raw data
   return await self._client.bridge.call(
    "sendMedia", 
    {
     "to": chat_id, 
-    "data": media, 
+    "data": data, 
     "mimetype": "image/webp", 
     "type": "sticker", 
-    "options": {"quotedMsgId": reply_to} if reply_to else {}
+    "options": options
    }
   )
