@@ -72,13 +72,56 @@ DOWNLOAD_CODE = r"""
     const Store = window.Astra.initializeEngine();
     const repo = Store.MessageRepo || Store.MsgRepo;
     
-    let msgIdObj = msgId;
+    // --- Phase 1: Resolve Message Object ---
+    let msg = null;
+    
+    // Try 1: Direct lookup (works for full serialized IDs)
     if (typeof msgId === 'string' && Store.MessageIdentity && Store.MessageIdentity.fromString) {
-      try { msgIdObj = Store.MessageIdentity.fromString(msgId); } catch(e) {}
+      try {
+        const key = Store.MessageIdentity.fromString(msgId);
+        msg = repo.get(key);
+      } catch(e) {}
+    }
+    
+    // Try 2: Direct string lookup
+    if (!msg) msg = repo.get(msgId);
+    
+    // Try 3: getMessagesById API
+    if (!msg) {
+      try {
+        const result = await repo.getMessagesById([msgId]);
+        msg = result?.messages?.[0];
+      } catch(e) {}
+    }
+    
+    // Try 4: Short stanza ID scan (critical for quoted messages)
+    if (!msg && typeof msgId === 'string') {
+      const shortId = msgId.includes('_') ? msgId.split('_').pop() : msgId;
+      console.log(`[Astra] retrieveMedia: Scanning store for short ID: ${shortId}`);
+      const models = repo.getModelsArray ? repo.getModelsArray() : (repo.models || []);
+      msg = models.find(m => 
+        m.id && (m.id.id === shortId || m.id._serialized === msgId || m.id.id === msgId)
+      );
+      if (msg) console.log(`[Astra] retrieveMedia: Found via store scan: ${msg.id._serialized}`);
+    }
+    
+    // Try 5: Search through all loaded chats
+    if (!msg && Store.Chat) {
+      const shortId = msgId.includes('_') ? msgId.split('_').pop() : msgId;
+      const chats = Store.Chat.getModelsArray ? Store.Chat.getModelsArray() : (Store.Chat.models || []);
+      for (const chat of chats) {
+        if (msg) break;
+        if (!chat.msgs) continue;
+        const msgs = chat.msgs.getModelsArray ? chat.msgs.getModelsArray() : (chat.msgs.models || []);
+        msg = msgs.find(m => m.id && (m.id.id === shortId || m.id._serialized === msgId));
+      }
+      if (msg) console.log(`[Astra] retrieveMedia: Found via chat scan: ${msg.id._serialized}`);
     }
 
-    const msg = repo.get(msgIdObj) || (await repo.getMessagesById([msgId]))?.messages?.[0];
-    if (!msg) return null;
+    if (!msg) {
+      console.error(`[Astra] retrieveMedia: Message not found for ${msgId}`);
+      return null;
+    }
 
     let decryptedMedia = null;
 
@@ -89,7 +132,7 @@ DOWNLOAD_CODE = r"""
         const downloadFunc = downloadManager?.downloadAndMaybeDecrypt;
         
         if (downloadFunc) {
-          if (msg.mediaData.mediaStage != 'RESOLVED') {
+          if (msg.mediaData && msg.mediaData.mediaStage != 'RESOLVED') {
             await msg.downloadMedia({ downloadEvenIfExpensive: true, rmrReason: 1 });
           }
 
@@ -106,13 +149,33 @@ DOWNLOAD_CODE = r"""
           });
         }
       } catch (err) {
-        console.error("Internal retrieval failed:", err);
+        console.error("[Astra] DownloadManager retrieval failed:", err);
+      }
+    }
+    
+    // Strategy 2: msg.downloadMedia() direct
+    if (!decryptedMedia && msg.downloadMedia) {
+      try {
+        const result = await msg.downloadMedia({ downloadEvenIfExpensive: true, rmrReason: 1 });
+        if (result) {
+          // Check if mediaData now has the blob
+          if (msg.mediaData && msg.mediaData.mediaBlob) {
+            const blob = msg.mediaData.mediaBlob.forResume ? msg.mediaData.mediaBlob.forResume() : msg.mediaData.mediaBlob;
+            if (blob instanceof Blob || (blob && blob.slice)) {
+              const ab = await blob.arrayBuffer();
+              decryptedMedia = new Uint8Array(ab);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("[Astra] msg.downloadMedia fallback failed:", err);
       }
     }
 
-    // Strategy 2: DOM Scraping Fallback
+    // Strategy 3: DOM Scraping Fallback
     if (!decryptedMedia) {
-      decryptedMedia = await window.Astra.retrieveMediaFromDOM(msgId);
+      const domId = msg.id?._serialized || msgId;
+      decryptedMedia = await window.Astra.retrieveMediaFromDOM(domId);
     }
 
     if (!decryptedMedia) return null;
@@ -120,7 +183,6 @@ DOWNLOAD_CODE = r"""
     // Chunking Cache
     const streamId = `media_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     
-    // Ensure decryptedMedia is Uint8Array to support .subarray() in chunking
     let finalBuffer = decryptedMedia;
     if (decryptedMedia instanceof ArrayBuffer) {
       finalBuffer = new Uint8Array(decryptedMedia);
