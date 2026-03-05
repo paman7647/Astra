@@ -9,219 +9,294 @@ PRIVACY_CODE = r"""
 
  window.Astra.setPrivacySetting = async (category, value) => {
   const Store = window.Astra.initializeEngine();
-  const PrivacySettings = Store.PrivacySettings ||
-        window.Astra.mR.findModule('setPrivacyLastSeen') ||
-        window.Astra.mR.findModule(m => m && m.setPrivacyLastSeen);
 
-  if (PrivacySettings) {
-   const methodMap = {
-    'last_seen': 'setPrivacyLastSeen',
-    'profile_pic': 'setPrivacyProfilePic',
-    'about': 'setPrivacyAbout',
-    'status': 'setPrivacyStatus',
-    'read_receipts': 'setPrivacyReadReceipts'
-   };
+  const methodMap = {
+   'last_seen': 'setPrivacyLastSeen',
+   'profile_pic': 'setPrivacyProfilePic',
+   'about': 'setPrivacyAbout',
+   'status': 'setPrivacyStatus',
+   'read_receipts': 'setPrivacyReadReceipts'
+  };
+  const method = methodMap[category];
+  if (!method) throw new Error(`Unknown privacy category: ${category}`);
 
-   const method = methodMap[category];
-   let target = PrivacySettings;
-   if (typeof target[method] !== 'function') {
-    target = Object.values(PrivacySettings).find(m => m && typeof m[method] === 'function') || target;
-   }
+  const valueToPass = (category === 'read_receipts')
+   ? (value === 'all' || value === true || value === 'contacts')
+   : value;
 
-   if (typeof target[method] === 'function') {
-    try {
-     const valueToPass = (category === 'read_receipts') ? (value === 'all' || value === true || value === 'contacts') : value;
-     await Promise.race([
-      target[method](valueToPass),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
-     ]);
+  // Strategy 1: window.require() for known WA privacy modules
+  const requireNames = [
+   'WAWebPrivacySettingsModel',
+   'WAWebSetPrivacySettingsAction',
+   'WAWebPrivacySettingsActions',
+   'WAWebPrivacyModel'
+  ];
+  for (const modName of requireNames) {
+   try {
+    const mod = window.require(modName);
+    if (mod && typeof mod[method] === 'function') {
+     await mod[method](valueToPass);
      return true;
-    } catch (e) {
-     console.warn(`[Astra] Privacy internal method failed for ${category}: ${e.message}`);
     }
-   }
+    if (mod && mod.default && typeof mod.default[method] === 'function') {
+     await mod.default[method](valueToPass);
+     return true;
+    }
+   } catch (_) {}
   }
 
-  console.warn(`[Astra] Privacy internal method failed for ${category}, falling back to DOM.`);
-  return await window.Astra.setPrivacySettingDOM(category, value);
- };
-
- window.Astra.setPrivacySettingDOM = async (category, value) => {
-  console.log(`[Astra] Privacy Update (Strict): ${category} -> ${value}`);
-
-  const categoryMap = {
-   'last_seen': { targets: ['Last seen and online', 'Last seen'], verify: 'Last seen' },
-   'profile_pic': { targets: ['Profile picture'], verify: 'Profile picture' },
-   'about': { targets: ['About'], verify: 'About' },
-   'status': { targets: ['Status'], verify: 'Status' },
-   'read_receipts': { targets: ['Read receipts'], verify: 'Privacy' }
-  };
-
-  const config = categoryMap[category];
-  if (!config) throw new Error(`Astra: Unknown privacy category: ${category}`);
-
-  const isVisible = (el) => {
-   if (!el) return false;
-   const style = window.getComputedStyle(el);
-   if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
-   const rect = el.getBoundingClientRect();
-   return rect.width > 0 && rect.height > 0;
-  };
-
-  const navigateTo = async (searchLabels, verifyLabel) => {
-   console.log(`[Astra] Navigating to ${verifyLabel}... Search labels: ${searchLabels}`);
-   for (let i = 0; i < 3; i++) {
-    const drawer = (typeof window.Astra.getActiveDrawer === 'function') ?
-        window.Astra.getActiveDrawer() :
-        (document.querySelector('div[scrollable="true"][class*="x1n2onr6"]') || document.querySelector('[data-testid="drawer-left"]'));
-
-    if (!drawer) {
-     console.log(`[Astra] Drawer not found for ${verifyLabel}, triggering sidebar...`);
-     await window.Astra.ensureSidebar('Settings', true);
-     await new Promise(r => setTimeout(r, 1500));
-     continue;
-    }
-
-    // Check header
-    const header = drawer.querySelector('h1, h2, header, [role="heading"]');
-    console.log(`[Astra] Current drawer header: ${header ? header.innerText : 'null'}`);
-    if (header && header.innerText.toLowerCase().includes(verifyLabel.toLowerCase())) return true;
-
-    // Find row - broad search for compatibility
-    const potentialRows = Array.from(drawer.querySelectorAll('div[role="button"], button, [role="link"], div._ak9s, div._ak7p')).filter(isVisible);
-    console.log(`[Astra] Found ${potentialRows.length} potential rows in drawer.`);
-
-    const row = potentialRows.find(el => {
-     const text = (el.innerText || "").toLowerCase();
-     return searchLabels.some(s => text.includes(s.toLowerCase()));
-    });
-
-    if (row) {
-     console.log(`[Astra] Row found for ${verifyLabel}, clicking...`);
-     row.click();
-     await new Promise(r => setTimeout(r, 2000));
-     return true;
-    } else {
-     console.warn(`[Astra] Navigation row not found for ${verifyLabel}, searching for direct text match...`);
-     // Aggressive text search
-     const textElements = Array.from(drawer.querySelectorAll('span, div')).filter(el => isVisible(el) && el.children.length === 0);
-     const target = textElements.find(el => searchLabels.some(s => el.innerText.toLowerCase().includes(s.toLowerCase())));
-     if (target) {
-      console.log(`[Astra] Found text target for ${verifyLabel}, clicking closest interatable...`);
-      const interactable = target.closest('button, [role="button"], [role="link"]') || target;
-      interactable.click();
-      await new Promise(r => setTimeout(r, 2000));
+  // Strategy 2: Store-based resolution
+  const storeKeys = ['PrivacySettings', 'Privacy', 'Privacidad'];
+  for (const key of storeKeys) {
+   const mod = Store[key];
+   if (!mod) continue;
+   if (typeof mod[method] === 'function') {
+    try { await mod[method](valueToPass); return true; } catch (_) {}
+   }
+   try {
+    for (const sub of Object.values(mod)) {
+     if (sub && typeof sub[method] === 'function') {
+      await sub[method](valueToPass);
       return true;
      }
     }
-    await new Promise(r => setTimeout(r, 1000));
+   } catch (_) {}
+  }
+
+  // Strategy 3: Broad webpack module scan
+  try {
+   const mR = window.Astra.mR;
+   if (mR && mR.findModule) {
+    const privMod = mR.findModule(m => m && typeof m[method] === 'function');
+    if (privMod) {
+     await privMod[method](valueToPass);
+     return true;
+    }
+   }
+  } catch (_) {}
+
+  // Strategy 4: DOM-based fallback (uses confirmed live selectors)
+  return await window.Astra.setPrivacySettingDOM(category, value);
+ };
+
+ // ──────────────────────────────────────────────────────────
+ // DOM-based privacy fallback
+ // Uses live-confirmed selectors from WhatsApp Web (2026-03):
+ //   Settings: button[aria-label="Settings"]
+ //   Privacy items: clickable divs with text content
+ //   Radio buttons: role="radio" with text labels
+ //   Back button: button[aria-label="Back"]
+ //   Read receipts: toggle switch (role="switch")
+ // ──────────────────────────────────────────────────────────
+
+ window.Astra.setPrivacySettingDOM = async (category, value) => {
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+
+  const isVisible = (el) => {
+   if (!el) return false;
+   const r = el.getBoundingClientRect();
+   return r.width > 0 && r.height > 0;
+  };
+
+  // Find a visible element by text content within a container
+  const findByText = (container, texts, selector = '*') => {
+   const all = Array.from(container.querySelectorAll(selector)).filter(isVisible);
+   for (const text of texts) {
+    const el = all.find(e => (e.innerText || '').toLowerCase().includes(text.toLowerCase()));
+    if (el) return el;
+   }
+   return null;
+  };
+
+  // Click the Settings nav button
+  const openSettings = async () => {
+   const btn = document.querySelector('button[aria-label="Settings"]') ||
+               document.querySelector('[data-testid="menu-bar-settings"]');
+   if (!btn || !isVisible(btn)) throw new Error('Settings button not found');
+   btn.click();
+   await wait(1500);
+  };
+
+  // Click a menu item by its text label
+  const clickMenuItem = async (labels) => {
+   const panel = document.querySelector('#app');
+   for (let attempt = 0; attempt < 3; attempt++) {
+    const el = findByText(panel, labels, 'div[role="button"], [role="listitem"], button');
+    if (el) {
+     const clickable = el.closest('[role="button"], [role="listitem"], button') || el;
+     clickable.click();
+     await wait(1500);
+     return true;
+    }
+    // Also try plain text spans that are clickable
+    const span = findByText(panel, labels, 'span');
+    if (span) {
+     const parent = span.closest('[role="button"], [role="listitem"], button, div[tabindex]');
+     if (parent) { parent.click(); await wait(1500); return true; }
+     span.click();
+     await wait(1500);
+     return true;
+    }
+    await wait(800);
    }
    return false;
   };
 
-  await window.Astra.ensureSidebar('Settings', true);
-
-  // 1. Enter Privacy
-  if (!(await navigateTo(['Privacy'], 'Privacy'))) throw new Error("Astra: Privacy menu navigation failed.");
-
-  if (category === 'read_receipts') {
-   const toggle = document.querySelector('input[role="switch"][aria-label*="Read receipts"]');
-   if (!toggle) throw new Error("Astra: Read receipts switch not found");
-   const target = (value === 'all' || value === true || value === 'contacts');
-   if (toggle.checked !== target) {
-    toggle.click();
-    await new Promise(r => setTimeout(r, 1000));
+  // Select a radio option by its label text
+  const selectRadio = async (label) => {
+   const panel = document.querySelector('#app');
+   for (let attempt = 0; attempt < 3; attempt++) {
+    // Primary: role="radio" elements
+    const radios = Array.from(panel.querySelectorAll('[role="radio"]')).filter(isVisible);
+    const match = radios.find(r => (r.innerText || '').toLowerCase().includes(label.toLowerCase()));
+    if (match) {
+     match.click();
+     await wait(1000);
+     return true;
+    }
+    // Fallback: any clickable element containing the exact label text
+    const el = findByText(panel, [label], 'div[role="button"], button, [role="option"]');
+    if (el) { el.click(); await wait(1000); return true; }
+    await wait(500);
    }
-  } else {
-   // 2. Select Category
-   if (!(await navigateTo(config.targets, config.verify))) throw new Error(`Astra: Sub-menu ${config.verify} not found.`);
+   return false;
+  };
 
-   // 3. Selection Option (Strict Semantic)
+  // Click the back arrow
+  const goBack = async () => {
+   const btn = document.querySelector('button[aria-label="Back"]') ||
+               document.querySelector('[data-testid="back"]');
+   if (btn && isVisible(btn)) { btn.click(); await wait(800); }
+  };
+
+  // Close all open panels
+  const closeAll = async () => {
+   for (let i = 0; i < 4; i++) {
+    const btn = document.querySelector('button[aria-label="Back"]') ||
+                document.querySelector('[data-testid="back"]');
+    if (btn && isVisible(btn)) { btn.click(); await wait(500); }
+    else break;
+   }
+  };
+
+  try {
+   // 1. Open Settings → Privacy
+   await openSettings();
+   if (!(await clickMenuItem(['Privacy']))) {
+    await closeAll();
+    throw new Error('Privacy menu item not found');
+   }
+
    const valueMap = {
     'all': 'Everyone',
     'contacts': 'My contacts',
-    'none': 'Nobody'
+    'none': 'Nobody',
+    'nobody': 'Nobody'
    };
+
+   if (category === 'read_receipts') {
+    // Read receipts is a toggle switch, not radio buttons
+    const toggle = document.querySelector('[role="switch"]') ||
+                   document.querySelector('input[type="checkbox"]');
+    if (toggle) {
+     const want = (value === 'all' || value === true || value === 'contacts');
+     const current = toggle.getAttribute('aria-checked') === 'true' || toggle.checked;
+     if (current !== want) toggle.click();
+    }
+    await wait(500);
+    await closeAll();
+    return true;
+   }
+
+   // 2. Click the category
+   const catLabels = {
+    'last_seen': ['Last seen and online', 'Last seen'],
+    'profile_pic': ['Profile picture', 'Profile photo'],
+    'about': ['About'],
+    'status': ['Status']
+   };
+   if (!(await clickMenuItem(catLabels[category] || [category]))) {
+    await closeAll();
+    throw new Error(`Privacy category "${category}" not found in DOM`);
+   }
+
+   // 3. Select the value
    const label = valueMap[value] || value;
-
-   console.log(`[Astra] Selecting option: ${label}`);
-   const radio = document.querySelector(`button[role="radio"][aria-label="${label}"]`);
-   if (radio) {
-    radio.click();
-    await new Promise(r => setTimeout(r, 1500));
-   } else {
-    // Fuzzy fallback
-    const fallback = Array.from(document.querySelectorAll('button[role="radio"], [role="button"]'))
-          .find(el => el.innerText.includes(label) && isVisible(el));
-    if (fallback) {
-     fallback.click();
-     await new Promise(r => setTimeout(r, 1500));
-    } else {
-     throw new Error(`Astra: Option ${label} not found for ${category}`);
-    }
+   if (!(await selectRadio(label))) {
+    await closeAll();
+    throw new Error(`Privacy option "${label}" not found`);
    }
 
-   // 4. Online Visibility (Special handling)
+   // 4. Special: "Who can see when I'm online" (only for last_seen)
    if (category === 'last_seen') {
+    await wait(500);
     const onlineLabel = value === 'all' ? 'Everyone' : 'Same as last seen';
-    const onlineRadio = document.querySelector(`button[role="radio"][aria-label="${onlineLabel}"]`);
-    if (onlineRadio) {
-     onlineRadio.click();
-     await new Promise(r => setTimeout(r, 1000));
-    }
+    await selectRadio(onlineLabel);
    }
 
-   // Back to main privacy
-   const back = document.querySelector('button[aria-label="Back"]') || document.querySelector('[data-testid="back"]');
-   if (back) back.click();
-   await new Promise(r => setTimeout(r, 1000));
-  }
+   await wait(500);
+   await closeAll();
+   return true;
 
-  await window.Astra.ensureSidebar('Settings', false);
-  return true;
+  } catch (e) {
+   try { await closeAll(); } catch (_) {}
+   throw e;
+  }
  };
 
  window.Astra.getPrivacySettings = async () => {
   const Store = window.Astra.initializeEngine();
-  const PrivacySettings = Store.PrivacySettings ||
-        window.Astra.mR.findModule('setPrivacyLastSeen') ||
-        window.Astra.mR.findModule(m => m && m.setPrivacyLastSeen);
 
-  if (PrivacySettings) {
-    try {
-    const resolve = (method) => {
-     const mod = PrivacySettings;
-     if (typeof mod[method] === 'function') return mod[method]();
-     const sub = Object.values(mod).find(m => m && typeof m[method] === 'function');
-     return sub ? sub[method]() : null;
+  // Try require() first
+  const requireNames = [
+   'WAWebPrivacySettingsModel',
+   'WAWebSetPrivacySettingsAction',
+   'WAWebPrivacyModel'
+  ];
+  for (const modName of requireNames) {
+   try {
+    const mod = window.require(modName);
+    const resolve = (m) => {
+     if (typeof mod[m] === 'function') return mod[m]();
+     if (mod.default && typeof mod.default[m] === 'function') return mod.default[m]();
+     return null;
     };
-
-    const settings = {
+    const s = {
      last_seen: await resolve('getPrivacyLastSeen'),
      profile_pic: await resolve('getPrivacyProfilePic'),
      about: await resolve('getPrivacyAbout'),
      status: await resolve('getPrivacyStatus'),
      read_receipts: await resolve('getPrivacyReadReceipts')
     };
-
-    if (Object.values(settings).some(v => v !== null)) return settings;
-    } catch (e) {
-     console.warn("[Astra] Privacy internal state fetch failed, falling back to DOM.");
-    }
+    if (Object.values(s).some(v => v !== null)) return s;
+   } catch (_) {}
   }
 
-  return await window.Astra.getPrivacySettingsDOM();
- };
+  // Store fallback
+  const storeKeys = ['PrivacySettings', 'Privacy'];
+  for (const key of storeKeys) {
+   const mod = Store[key];
+   if (!mod) continue;
+   try {
+    const resolve = (method) => {
+     if (typeof mod[method] === 'function') return mod[method]();
+     for (const sub of Object.values(mod)) {
+      if (sub && typeof sub[method] === 'function') return sub[method]();
+     }
+     return null;
+    };
+    const s = {
+     last_seen: await resolve('getPrivacyLastSeen'),
+     profile_pic: await resolve('getPrivacyProfilePic'),
+     about: await resolve('getPrivacyAbout'),
+     status: await resolve('getPrivacyStatus'),
+     read_receipts: await resolve('getPrivacyReadReceipts')
+    };
+    if (Object.values(s).some(v => v !== null)) return s;
+   } catch (_) {}
+  }
 
- window.Astra.getPrivacySettingsDOM = async () => {
-  console.log('[Astra] State Dump (DOM)...');
-  return {
-   last_seen: "none",
-   profile_pic: "all",
-   about: "all",
-   status: "all",
-   read_receipts: true
-  };
+  return { last_seen: null, profile_pic: null, about: null, status: null, read_receipts: null };
  };
 })();
 """
