@@ -4,9 +4,5 @@
 # -----------------------------------------------------------
 
 """
-Backward compatibility: astra.connection → astra.network
+Astra Sync: Background synchronization engine, scheduler, and supervisor.
 """
-
-from ..network import BrowserController
-
-__all__ = ["BrowserController"]

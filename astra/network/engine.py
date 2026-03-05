@@ -8,19 +8,19 @@ This module assembles the JavaScript source for the Astra Engine.
 The engine acts as the local representative of Astra inside the browser.
 """
 
-from ..core.bridge.base import CORE_SCRIPT
-from ..core.bridge.chat import CHAT_CODE
-from ..core.bridge.contact import CONTACT_CODE
-from ..core.bridge.group import GROUP_CODE
-from ..core.bridge.media import MEDIA_CODE
-from ..core.bridge.account import ACCOUNT_CODE
-from ..core.bridge.diagnostic import DIAGNOSTIC_CODE
-from ..core.bridge.status import STATUS_CODE
-from ..core.bridge.privacy import PRIVACY_CODE
-from ..core.bridge.dom import DOM_SCANNER_CODE
-from ..core.bridge.firefox_dom import FIREFOX_DOM_CODE
-from ..core.bridge.idb_cache import IDB_CACHE_CODE
-from ..core.bridge.download import DOWNLOAD_CODE
+from ..functions.base import CORE_SCRIPT
+from ..functions.chat import CHAT_CODE
+from ..functions.contact import CONTACT_CODE
+from ..functions.group import GROUP_CODE
+from ..functions.media import MEDIA_CODE
+from ..functions.account import ACCOUNT_CODE
+from ..functions.diagnostic import DIAGNOSTIC_CODE
+from ..functions.status import STATUS_CODE
+from ..functions.privacy import PRIVACY_CODE
+from ..functions.dom import DOM_SCANNER_CODE
+from ..functions.firefox_dom import FIREFOX_DOM_CODE
+from ..functions.idb_cache import IDB_CACHE_CODE
+from ..functions.download import DOWNLOAD_CODE
 
 # The Definitive Engine Source (V24 Edition)
 # We assemble individual modules into a single optimized script

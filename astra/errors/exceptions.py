@@ -219,6 +219,31 @@ class GroupSettingsError(AstraError):
  def __init__(self, message: str = None, **kw):
   super().__init__(**_from_code(ErrorCode.GRP_SETTINGS_FAILED, message, **kw))
 
+class MembershipRequestError(AstraError):
+ """[E4021] Failed to process membership request."""
+ def __init__(self, message: str = None, **kw):
+  super().__init__(**_from_code(ErrorCode.GRP_MEMBERSHIP_FAILED, message, **kw))
+
+class CallRejectError(AstraError):
+ """[E4030] Failed to reject incoming call."""
+ def __init__(self, message: str = None, **kw):
+  super().__init__(**_from_code(ErrorCode.CALL_REJECT_FAILED, message, **kw))
+
+class MessageForwardError(AstraError):
+ """[E3012] Failed to forward message."""
+ def __init__(self, message: str = None, **kw):
+  super().__init__(**_from_code(ErrorCode.MSG_FORWARD_FAILED, message, **kw))
+
+class MessagePinError(AstraError):
+ """[E3023] Failed to pin/unpin message."""
+ def __init__(self, message: str = None, **kw):
+  super().__init__(**_from_code(ErrorCode.MSG_CHAT_PIN, message, **kw))
+
+class ChatClearError(AstraError):
+ """[E3021] Failed to clear chat."""
+ def __init__(self, message: str = None, **kw):
+  super().__init__(**_from_code(ErrorCode.MSG_CHAT_ARCHIVE, message, **kw))
+
 
 # ═══════════════════════════════════════════════════════════
 # E5xxx · Account & Profile

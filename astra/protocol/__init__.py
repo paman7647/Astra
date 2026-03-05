@@ -4,10 +4,9 @@
 # -----------------------------------------------------------
 
 """
-Astra Protocol: Handles the low-level communication with the browser's JavaScript engine.
+Backward compatibility: astra.protocol → astra.network
 """
 
-from .gateway import ProtocolBridge
-from .actions import EngineAPI
+from ..network import ProtocolBridge, EngineAPI, DataTransformer
 
-__all__ = ["ProtocolBridge", "EngineAPI"]
+__all__ = ["ProtocolBridge", "EngineAPI", "DataTransformer"]

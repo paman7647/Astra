@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Optional, Callable, Any, Dict, List, Union
 
 from ..constants import WHATSAPP_URL, SESSION_STORAGE_PATH, VERSION
-from ..models import ClientStatus, Message, Chat, User, JID
+from ..types import ClientStatus, Message, Chat, User, JID
 from ..errors import (
  LoginFailedError, AstraError, StartupError,
  ProfileReadError, ConnectionLostError,
@@ -35,15 +35,15 @@ from .conversation import Conversation
 from .sync_engine import SyncEngine
 from .session_store import SessionStore
 
-from ..connection import BrowserController
-from ..protocol import ProtocolBridge, EngineAPI
+from ..network import BrowserController
+from ..network import ProtocolBridge, EngineAPI
 from ..events import EventEmitter, EventDispatcher, Filters, EventContext
 
 from .methods.chat import ChatMethods
 from .methods.group import GroupMethods
 from .methods.media import MediaMethods
 from .methods.account import AccountMethods
-from ..utils.logger import setup_logging
+from ..helpers.logger import setup_logging
 
 logger = logging.getLogger("Client")
 
