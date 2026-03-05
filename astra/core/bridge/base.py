@@ -1107,7 +1107,7 @@ window.Astra = window.Astra || {};
         GroupInviteV4: (m) => m && (m.queryGroupInviteV4 || m.sendGroupInviteMessage),
         WAGroupInviteQuery: (m) => m && (m.fetchMexGroupInviteCode || m.queryGroupInviteCode),
         GroupParticipants: (m) => m && m.addParticipants && m.promoteParticipants && m.removeParticipants,
-        GroupUtils: (m) => m && m.sendSetPicture && m.requestDeletePicture
+        GroupUtils: (m) => m && (m.sendSetPicture || (m.setGroupSubject && m.setGroupDescription) || (m.sendSetPicture && m.requestDeletePicture) || (m.sendExitGroup && m.setGroupSubject))
       };
 
       for (let alias in engineHeuristics) {

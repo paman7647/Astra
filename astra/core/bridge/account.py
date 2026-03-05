@@ -135,8 +135,6 @@ ACCOUNT_CODE = r"""
 
   window.Astra.setProfilePic = async (data) => {
     const Store = window.Astra.initializeEngine();
-    const GroupUtils = Store.GroupUtils;
-    if (!GroupUtils || !GroupUtils.sendSetPicture) throw new Error('Astra: GroupUtils.sendSetPicture not found');
 
     const me = window.Astra.getIdentity();
     if (!me || !me.id) throw new Error('Astra: Could not resolve own identity for PFP update');
@@ -148,8 +146,37 @@ ACCOUNT_CODE = r"""
     const profilePic = await window.Astra.cropAndResizeImage(media, { size: 640, asDataUrl: true });
 
     console.log('[Astra] Sending PFP update to WhatsApp...');
-    const res = await GroupUtils.sendSetPicture(wid, thumbnail, profilePic);
-    return res && (res.status === 200 || res.status === 'OK');
+
+    // Strategy 1: GroupUtils.sendSetPicture (classic path)
+    if (Store.GroupUtils && typeof Store.GroupUtils.sendSetPicture === 'function') {
+      const res = await Store.GroupUtils.sendSetPicture(wid, thumbnail, profilePic);
+      return res && (res.status === 200 || res.status === 'OK' || res === true);
+    }
+
+    // Strategy 2: Runtime scan for sendSetPicture in any webpack module
+    console.log('[Astra] GroupUtils.sendSetPicture not found, scanning webpack modules...');
+    try {
+      const engineRaid = window.Astra.mR;
+      if (engineRaid && engineRaid.findModule) {
+        const picModule = engineRaid.findModule(m => m && typeof m.sendSetPicture === 'function');
+        if (picModule) {
+          console.log('[Astra] Found sendSetPicture via runtime scan');
+          const res = await picModule.sendSetPicture(wid, thumbnail, profilePic);
+          return res && (res.status === 200 || res.status === 'OK' || res === true);
+        }
+      }
+    } catch (e) {
+      console.warn('[Astra] Runtime scan failed:', e.message);
+    }
+
+    // Strategy 3: ProfilePicRepo.setPicture (some WA versions)
+    if (Store.ProfilePicRepo && typeof Store.ProfilePicRepo.setPicture === 'function') {
+      console.log('[Astra] Trying ProfilePicRepo.setPicture...');
+      const res = await Store.ProfilePicRepo.setPicture(wid, thumbnail, profilePic);
+      return res && (res.status === 200 || res.status === 'OK' || res === true);
+    }
+
+    throw new Error('Astra: No method found to set profile picture (sendSetPicture unavailable in all modules)');
   };
 
   window.Astra.updateProfileDOM = async (pushname) => {

@@ -239,28 +239,60 @@ GROUP_CODE = r"""
    const Store = window.Astra.initializeEngine();
    const chatWid = getWid(groupId, Store);
 
-   const collection = Store.ProfilePicRepo.get(groupId) || (await Store.ProfilePicRepo.find(groupId));
-   if (!collection.canSet()) throw new Error("Cannot set picture");
-
-   if (Store.GroupUtils && Store.GroupUtils.sendSetPicture) {
+   // Strategy 1: Store.GroupUtils.sendSetPicture
+   if (Store.GroupUtils && typeof Store.GroupUtils.sendSetPicture === 'function') {
     await Store.GroupUtils.sendSetPicture(chatWid, thumb, picture);
     return true;
    }
-   throw new Error("sendSetPicture not found");
+
+   // Strategy 2: Runtime scan
+   try {
+     const engineRaid = window.Astra.mR;
+     if (engineRaid && engineRaid.findModule) {
+       const picModule = engineRaid.findModule(m => m && typeof m.sendSetPicture === 'function');
+       if (picModule) {
+         await picModule.sendSetPicture(chatWid, thumb, picture);
+         return true;
+       }
+     }
+   } catch (e) {
+     console.warn('[Astra] Runtime scan for sendSetPicture failed:', e.message);
+   }
+
+   // Strategy 3: ProfilePicRepo.setPicture
+   if (Store.ProfilePicRepo && typeof Store.ProfilePicRepo.setPicture === 'function') {
+     await Store.ProfilePicRepo.setPicture(chatWid, thumb, picture);
+     return true;
+   }
+
+   throw new Error("sendSetPicture not found in any module");
  };
 
  window.Astra.deleteGroupPicture = async function(groupId) {
    const Store = window.Astra.initializeEngine();
    const chatWid = getWid(groupId, Store);
-   const collection = Store.ProfilePicRepo.get(groupId);
-   if (!collection.canDelete()) throw new Error("Cannot delete picture");
 
-   if (Store.GroupUtils && Store.GroupUtils.requestDeletePicture) {
+   // Strategy 1: Store.GroupUtils.requestDeletePicture
+   if (Store.GroupUtils && typeof Store.GroupUtils.requestDeletePicture === 'function') {
     await Store.GroupUtils.requestDeletePicture(chatWid);
     return true;
    }
-   // Fallback
-   throw new Error("requestDeletePicture not found");
+
+   // Strategy 2: Runtime scan
+   try {
+     const engineRaid = window.Astra.mR;
+     if (engineRaid && engineRaid.findModule) {
+       const picModule = engineRaid.findModule(m => m && typeof m.requestDeletePicture === 'function');
+       if (picModule) {
+         await picModule.requestDeletePicture(chatWid);
+         return true;
+       }
+     }
+   } catch (e) {
+     console.warn('[Astra] Runtime scan for requestDeletePicture failed:', e.message);
+   }
+
+   throw new Error("requestDeletePicture not found in any module");
  };
 
  window.Astra.getGroupInfo = async function(groupId) {

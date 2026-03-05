@@ -12,7 +12,7 @@ import logging
 from typing import Optional, List, Any, Dict
 from .gateway import ProtocolBridge
 from .serializers import DataTransformer
-from ..errors import MessageEditError
+from ..errors import MessageEditError, BridgeCallError
 from ..models import Message, Chat, User
 
 logger = logging.getLogger("Engine")
@@ -172,15 +172,24 @@ class EngineAPI:
  async def set_profile_name(self, name: str) -> bool:
   """
   Updates the user's pushname.
+  JS bridge first → Playwright keyboard fallback.
   """
-  return await self._bridge.call("setProfileName", {"name": name})
+  try:
+   return await self._bridge.call("setProfileName", {"name": name})
+  except BridgeCallError as e:
+   logger.warning(f"JS setProfileName failed ({e}), trying Playwright fallback...")
+   return await self._bridge.set_profile_name_native(name)
 
  async def set_about_text(self, text: str) -> bool:
   """
   Updates the user's 'About' text content.
+  JS bridge first → Playwright keyboard fallback.
   """
-  # Note: mapping is setAbout in js_engine.py
-  return await self._bridge.call("setAbout", {"about": text})
+  try:
+   return await self._bridge.call("setAbout", {"about": text})
+  except BridgeCallError as e:
+   logger.warning(f"JS setAbout failed ({e}), trying Playwright fallback...")
+   return await self._bridge.set_about_native(text)
 
  async def update_profile_pic(self, media: str) -> bool:
   """
@@ -198,8 +207,13 @@ class EngineAPI:
   """
   Sets a privacy setting.
   Categories: 'last_seen', 'profile_pic', 'about', 'status', 'read_receipts'
+  JS bridge first → Playwright keyboard/mouse fallback.
   """
-  return await self._bridge.call("setPrivacy", {"category": category, "value": value})
+  try:
+   return await self._bridge.call("setPrivacy", {"category": category, "value": value})
+  except BridgeCallError as e:
+   logger.warning(f"JS setPrivacy failed ({e}), trying Playwright fallback...")
+   return await self._bridge.set_privacy_native(category, value)
 
  async def get_privacy_settings(self) -> Dict[str, Any]:
   """

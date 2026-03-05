@@ -10,6 +10,7 @@ receiving events from the WhatsApp Web browser context.
 
 import logging
 import asyncio
+import os
 from typing import Any, Optional, Callable, Awaitable, Dict
 from playwright.async_api import Page
 
@@ -305,4 +306,185 @@ class ProtocolBridge:
   except Exception as e:
    logger.error(f"High-speed native edit failed: {e}")
    return False
+
+ # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ # PLAYWRIGHT NATIVE FALLBACKS
+ # Human-like automation using keyboard, mouse, and locators.
+ # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ async def _pw_click_text(self, text, timeout=3000):
+  try:
+   loc = self._page.get_by_text(text, exact=False).first
+   await loc.wait_for(state="visible", timeout=timeout)
+   await loc.click()
+   await asyncio.sleep(0.8)
+   return True
+  except Exception:
+   return False
+
+ async def _pw_click_role(self, role, name, timeout=3000):
+  try:
+   loc = self._page.get_by_role(role, name=name).first
+   await loc.wait_for(state="visible", timeout=timeout)
+   await loc.click()
+   await asyncio.sleep(0.8)
+   return True
+  except Exception:
+   return False
+
+ async def _pw_click_sel(self, sel, timeout=3000):
+  try:
+   loc = self._page.locator(sel).first
+   await loc.wait_for(state="visible", timeout=timeout)
+   await loc.click()
+   await asyncio.sleep(0.8)
+   return True
+  except Exception:
+   return False
+
+ async def _pw_open_settings(self):
+  if not self._page or self._page.is_closed(): return False
+  if await self._pw_click_sel('[data-testid="menu-bar-settings"]'): return True
+  if await self._pw_click_role("button", "Settings"): return True
+  if await self._pw_click_sel('span[data-icon="menu"]'):
+   await asyncio.sleep(0.5)
+   return await self._pw_click_text("Settings")
+  return False
+
+ async def _pw_open_profile(self):
+  if not self._page or self._page.is_closed(): return False
+  if await self._pw_click_sel('[data-testid="menu-bar-profile"]'): return True
+  if await self._pw_click_role("button", "Profile"): return True
+  return False
+
+ async def _pw_go_back(self):
+  try:
+   b = self._page.locator('[data-testid="back"], button[aria-label="Back"]').first
+   if await b.count() > 0 and await b.is_visible():
+    await b.click()
+    await asyncio.sleep(0.5)
+    return True
+  except Exception:
+   pass
+  await self._page.keyboard.press("Escape")
+  await asyncio.sleep(0.5)
+  return True
+
+ async def _pw_close_all(self):
+  for _ in range(4):
+   try:
+    await self._page.keyboard.press("Escape")
+    await asyncio.sleep(0.3)
+   except Exception:
+    break
+
+ async def set_privacy_native(self, category, value):
+  """Playwright fallback: Settings → Privacy → Category → Select."""
+  if not self._page or self._page.is_closed(): return False
+  try:
+   logger.info(f"[Playwright] Privacy: {category} → {value}")
+   if not await self._pw_open_settings():
+    return False
+   await asyncio.sleep(1)
+   if not await self._pw_click_text("Privacy"):
+    await self._pw_close_all(); return False
+   await asyncio.sleep(1)
+
+   if category == "read_receipts":
+    t = self._page.locator('input[role="switch"]').first
+    if await t.count() > 0:
+     want = value in ("all", "contacts", "true", True)
+     if await t.is_checked() != want: await t.click()
+    await self._pw_close_all(); return True
+
+   cats = {"last_seen": ["Last seen", "Last seen and online"], "profile_pic": ["Profile photo", "Profile picture"], "about": ["About"], "status": ["Status"]}
+   for lbl in cats.get(category, [category]):
+    if await self._pw_click_text(lbl): break
+   else:
+    await self._pw_close_all(); return False
+   await asyncio.sleep(1)
+
+   vm = {"all": "Everyone", "contacts": "My contacts", "none": "Nobody", "nobody": "Nobody"}
+   vl = vm.get(value, value)
+   if not await self._pw_click_role("radio", vl):
+    if not await self._pw_click_text(vl):
+     await self._pw_close_all(); return False
+
+   if category == "last_seen":
+    await asyncio.sleep(0.5)
+    ol = "Everyone" if value == "all" else "Same as last seen"
+    await self._pw_click_role("radio", ol) or await self._pw_click_text(ol)
+
+   await asyncio.sleep(0.5)
+   await self._pw_close_all()
+   logger.info(f"[Playwright] Privacy done: {category} → {value}")
+   return True
+  except Exception as e:
+   logger.error(f"[Playwright] set_privacy_native: {e}")
+   await self._pw_close_all(); return False
+
+ async def set_profile_name_native(self, name):
+  """Playwright fallback for updating profile name."""
+  if not self._page or self._page.is_closed(): return False
+  try:
+   logger.info(f"[Playwright] Profile name: {name}")
+   if not await self._pw_open_profile(): return False
+   await asyncio.sleep(1)
+
+   pencils = self._page.locator('span[data-icon="pencil"]')
+   if await pencils.count() > 0: await pencils.first.click()
+   else: await self._pw_close_all(); return False
+   await asyncio.sleep(0.8)
+
+   tb = self._page.locator('div[role="textbox"]').first
+   await tb.click()
+   await self._page.keyboard.down("Control")
+   await self._page.keyboard.press("A")
+   await self._page.keyboard.up("Control")
+   await self._page.keyboard.press("Backspace")
+   await self._page.keyboard.type(name, delay=30)
+
+   sv = self._page.locator('span[data-icon="checkmark-medium"]').first
+   if await sv.count() > 0: await sv.click()
+   else: await self._page.keyboard.press("Enter")
+   await asyncio.sleep(1)
+   await self._pw_close_all()
+   return True
+  except Exception as e:
+   logger.error(f"[Playwright] set_profile_name_native: {e}")
+   await self._pw_close_all(); return False
+
+ async def set_about_native(self, text):
+  """Playwright fallback for updating About/Bio."""
+  if not self._page or self._page.is_closed(): return False
+  try:
+   logger.info(f"[Playwright] About: {text}")
+   if not await self._pw_open_profile(): return False
+   await asyncio.sleep(1)
+
+   pencils = self._page.locator('span[data-icon="pencil"]')
+   c = await pencils.count()
+   if c >= 2: await pencils.nth(1).click()
+   elif c == 1: await pencils.first.click()
+   else: await self._pw_close_all(); return False
+   await asyncio.sleep(0.8)
+
+   tb = self._page.locator('div[role="textbox"]').first
+   await tb.click()
+   await self._page.keyboard.down("Control")
+   await self._page.keyboard.press("A")
+   await self._page.keyboard.up("Control")
+   await self._page.keyboard.press("Backspace")
+   await self._page.keyboard.type(text, delay=30)
+
+   sv = self._page.locator('span[data-icon="checkmark-medium"]').first
+   if await sv.count() > 0: await sv.click()
+   else: await self._page.keyboard.press("Enter")
+   await asyncio.sleep(1)
+   await self._pw_close_all()
+   return True
+  except Exception as e:
+   logger.error(f"[Playwright] set_about_native: {e}")
+   await self._pw_close_all(); return False
+
 
