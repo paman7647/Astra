@@ -57,6 +57,10 @@ class Message:
  mentioned_jids: List[JID] = field(default_factory=list)
  subtype: Optional[str] = None
  recipients: List[JID] = field(default_factory=list)
+ 
+ # Media Metadata
+ mimetype: Optional[str] = None
+ size: Optional[int] = None
 
  @property
  def text(self) -> str:
@@ -184,7 +188,9 @@ class Message:
        for m in (data.get("mentionedJidList") or [])],
    subtype=data.get("subtype"),
    recipients=[JID.parse(r) if isinstance(r, str) else JID.parse(r.get("_serialized", ""))
-              for r in (data.get("recipients") or [])]
+              for r in (data.get("recipients") or [])],
+   mimetype=data.get("mimetype"),
+   size=data.get("size") or data.get("filesize")
   )
 
  async def reply(self, text: str) -> "Message":
