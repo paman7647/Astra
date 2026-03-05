@@ -105,8 +105,24 @@ GROUP_CODE = r"""
  window.Astra.setGroupSubject = async function(groupId, subject) {
   const Store = window.Astra.initializeEngine();
   const chatWid = getWid(groupId, Store);
-  await Store.GroupUtils.setGroupSubject(chatWid, subject);
-  return true;
+
+  // Strategy 1: Store.GroupUtils
+  if (Store.GroupUtils && typeof Store.GroupUtils.setGroupSubject === 'function') {
+   await Store.GroupUtils.setGroupSubject(chatWid, subject);
+   return true;
+  }
+
+  // Strategy 2: Runtime scan
+  const engineRaid = window.Astra.mR;
+  if (engineRaid && engineRaid.findModule) {
+   const mod = engineRaid.findModule(m => m && typeof m.setGroupSubject === 'function');
+   if (mod) {
+    await mod.setGroupSubject(chatWid, subject);
+    return true;
+   }
+  }
+
+  throw new Error('setGroupSubject not found in any module');
  };
 
  window.Astra.setGroupDescription = async function(groupId, description) {
@@ -137,6 +153,17 @@ GROUP_CODE = r"""
    await window.Store.GroupUtils.setGroupDescription(chatWid, description, newId, descId);
    return true;
   }
+
+  // Strategy 3: Runtime scan
+  const engineRaid = window.Astra.mR;
+  if (engineRaid && engineRaid.findModule) {
+   const mod = engineRaid.findModule(m => m && typeof m.setGroupDescription === 'function');
+   if (mod) {
+    await mod.setGroupDescription(chatWid, description, newId, descId);
+    return true;
+   }
+  }
+
   throw new Error('setGroupDescription not available');
  };
 
@@ -145,12 +172,29 @@ GROUP_CODE = r"""
   const chat = await getChat(groupId, Store);
   if (!chat) throw new Error("Chat not found: " + groupId);
 
-  const exitAction = Store.GroupUtils?.sendExitGroup || (window.Store.GroupUtils && window.Store.GroupUtils.sendExitGroup);
-  if (exitAction) {
-   await exitAction(chat);
+  // Strategy 1: Store.GroupUtils.sendExitGroup
+  if (Store.GroupUtils && typeof Store.GroupUtils.sendExitGroup === 'function') {
+   await Store.GroupUtils.sendExitGroup(chat);
    return true;
   }
-  throw new Error("sendExitGroup not available");
+
+  // Strategy 2: window.Store fallback
+  if (window.Store && window.Store.GroupUtils && typeof window.Store.GroupUtils.sendExitGroup === 'function') {
+   await window.Store.GroupUtils.sendExitGroup(chat);
+   return true;
+  }
+
+  // Strategy 3: Runtime scan
+  const engineRaid = window.Astra.mR;
+  if (engineRaid && engineRaid.findModule) {
+   const mod = engineRaid.findModule(m => m && typeof m.sendExitGroup === 'function');
+   if (mod) {
+    await mod.sendExitGroup(chat);
+    return true;
+   }
+  }
+
+  throw new Error("sendExitGroup not available in any module");
  };
 
  window.Astra.createGroup = async function(title, participants) {
