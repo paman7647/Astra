@@ -70,6 +70,8 @@ JS_ENGINE_SOURCE = "\n".join([
  " getContacts: async () => pack(await A.getContacts()),",
  " getChatById: async (p) => pack(await A.getChatById(p.chatId || p.id || p.value || p)),",
  " getContactById: async (p) => pack(await A.getContactById(p.contactId || p.id || p.value || p)),",
+ " getNumberId: async (p) => pack(await A.getNumberId(p.number || p.value || p)),",
+ " getCommonGroups: async (p) => pack(await A.getCommonGroups(p.contactId || p.id || p.value || p)),",
  " ",
  " // Messaging",
  " sendMessage: async (p) => pack(await A.sendText(p.to, p.text || p.body, p.options || {})),",

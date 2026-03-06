@@ -107,5 +107,59 @@ CONTACT_CODE = r"""
    return null;
   }
  };
+  window.Astra.getNumberId = async function(id) {
+    const Store = window.Astra.initializeEngine();
+    const wid = window.Astra.createWid(id);
+    if (!wid) return null;
+    if (Store.QueryExist) {
+        try {
+            const result = await Store.QueryExist(wid);
+            if (result && result.wid && result.wid._serialized) return { _serialized: result.wid._serialized };
+        } catch(e) { }
+    }
+    try {
+        const engineRaid = window.Astra.mR;
+        if (engineRaid && engineRaid.findModule) {
+            const checkMod = engineRaid.findModule(m => m && m.queryExists);
+            if (checkMod) {
+                const res = await checkMod.queryExists(wid);
+                if (res && res.wid) return { _serialized: res.wid._serialized };
+            }
+        }
+    } catch(e) {}
+    return null;
+  };
+
+  window.Astra.getCommonGroups = async function(id) {
+    const Store = window.Astra.initializeEngine();
+    const wid = window.Astra.createWid(id);
+    if (!wid) return [];
+    try {
+        if (Store.GroupUtils && typeof Store.GroupUtils.getCommonGroups === 'function') {
+            const groups = await Store.GroupUtils.getCommonGroups(wid);
+            return groups.map(g => typeof g === 'string' ? g : (g._serialized || g.id));
+        }
+        const CommonMod = window.require && (window.require('WAWebFindCommonGroupsApi') || window.require('WAWebCommonGroups'));
+        if (CommonMod && typeof CommonMod.findCommonGroups === 'function') {
+            const groups = await CommonMod.findCommonGroups(wid);
+            return groups.map(g => typeof g === 'string' ? g : (g._serialized || g.id));
+        }
+        const engineRaid = window.Astra.mR;
+        if (engineRaid && engineRaid.findModule) {
+            const raidMod = engineRaid.findModule(m => m && typeof m.getCommonGroups === 'function');
+            if (raidMod) {
+                const groups = await raidMod.getCommonGroups(wid);
+                return groups.map(g => typeof g === 'string' ? g : (g._serialized || g.id));
+            }
+            const raidMod2 = engineRaid.findModule(m => m && typeof m.findCommonGroups === 'function');
+            if (raidMod2) {
+                const groups = await raidMod2.findCommonGroups(wid);
+                return groups.map(g => typeof g === 'string' ? g : (g._serialized || g.id));
+            }
+        }
+    } catch(e) { }
+    return [];
+  };
+
 })();
 """
