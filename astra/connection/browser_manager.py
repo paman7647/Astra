@@ -346,7 +346,7 @@ class BrowserController:
    logger.debug(f"Engine: {text.split('[Astra]', 1)[1].strip()}")
   elif msg.type == "error":
    # Real JS errors on the page
-   if not any(x in text for x in ["SameSite", "Content-Security-Policy", "ErrorUtils"]):
+   if not any(x in text for x in ["SameSite", "Content-Security-Policy", "ErrorUtils", "X-Frame-Options"]):
     logger.error(f"Browser Error: {text}")
   else:
    # Everything else is just debug noise

@@ -82,7 +82,7 @@ class Authenticator:
                   if hasattr(self._controller, "get_db_state_callback"):
                        db_state = self._controller.get_db_state_callback()
                        
-                  if db_state:
+                  if db_state is not None:
                        logger.info("Restoring session...")
                        await self.import_session(db_state)
                        # Wait for bridge to settle after navigation
