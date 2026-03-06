@@ -26,15 +26,7 @@ class MediaMethods:
  def __init__(self, client: 'Client'):
   self._client = client
 
- async def send_file(
-  self,
-  chat_id: str,
-  file_path: str,
-  caption: Optional[str] = None,
-  reply_to: Optional[str] = None,
-  document: bool = False,
-  progress: Optional[Callable[[int, int], Any]] = None
- ) -> bool:
+ async def send_file(self, chat_id: str, file_path: str, caption: Optional[str] = None, reply_to: Optional[str] = None, document: bool = False, progress: Optional[Callable[[int, int], Any]] = None, options: Optional[dict] = None, **kwargs) -> bool:
   """
   Sends a local file as media with optional progress tracking.
   """
