@@ -263,12 +263,11 @@ class Client:
     await self._save_session_meta()
     
     try:
-        await self._start_idb_observer()
+    try:
+     await self._start_idb_observer()
         # 8. Initial cache population
         if self.use_cache: 
             await self._populate_cache()
-    except Exception as init_err:
-        logger.warning(f"Non-fatal initialization error (IDB/Cache): {init_err}")
 
    # Print post-auth session info
    if self._show_banner:
