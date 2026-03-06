@@ -157,9 +157,7 @@ class Client:
   """Compatibility alias for the functional core (now directed to ChatMethods)."""
   return self.chat
 
- async def send_message(self, *args, **kwargs) -> Message:
-  """Shortcut for client.chat.send_message."""
-  return await self.chat.send_message(*args, **kwargs)
+
 
  async def send_media(self, *args, **kwargs) -> Message:
   """Shortcut for client.chat.send_media."""

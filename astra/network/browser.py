@@ -52,7 +52,7 @@ class BrowserController:
   self._context: Optional[BrowserContext] = None
   self._page: Optional[Page] = None
 
-  self._pending_storage: Optional[List[Dict[str, Any]]] = None
+  self._pending_storage: List[Dict[str, Any]] = []
   self._crash_handler: Optional[Callable[[], Awaitable[None]]] = None
 
   self._lock_file = os.path.join(self.session_path, "session.lock")
@@ -188,7 +188,7 @@ class BrowserController:
      except Exception as e:
       logger.warning(f"Failed to restore localStorage for {url}: {e}")
       
-    self._pending_storage = None
+    self._pending_storage = []
 
    # Stability: Set long timeouts for slow networks
    self._page.set_default_timeout(60000)

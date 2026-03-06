@@ -47,6 +47,7 @@ class Authenticator:
         self._last_qr = None
         self._last_code = None
         self._phone_injected = False
+        self._last_pairing_attempt = 0.0
 
     async def login(self, timeout: float = 120.0):
         """
