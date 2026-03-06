@@ -222,10 +222,6 @@ class Client:
    # 1. Launch Browser
    page = await self.browser.start()
 
-   # 1b. Clear stale browser caches if requested
-   # We disable this by default to preserve session tokens (SW)
-   # await self._clear_browser_cache(page)
-
    # 2. Establish Bridge (Pre-auth)
    logger.debug("Connecting to engine...")
    self.bridge._page = page
