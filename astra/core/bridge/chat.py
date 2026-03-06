@@ -149,22 +149,31 @@ CHAT_CODE = r"""
  };
 
  window.Astra.pinChat = async (chatId, pin = true) => {
-  try {
-   const Store = window.Astra.initializeEngine();
-   const Wid = window.Astra.createWid(chatId);
-   const chat = Store.Chat.get(Wid) || await Store.Chat.find(Wid);
-   if (!chat) return false;
+   try {
+    const Store = window.Astra.initializeEngine();
+    const Wid = window.Astra.createWid(chatId);
+    const chat = Store.Chat.get(Wid) || await Store.Chat.find(Wid);
+    if (!chat) return false;
 
-   if (Store.Cmd && typeof Store.Cmd.pinChat === 'function') {
-    await Store.Cmd.pinChat(chat, pin);
-    return true;
+    if (pin && !chat.pin) {
+        const MAX_PIN_COUNT = 3;
+        const pinnedChats = Store.Chat.getModelsArray().filter(c => c.pin);
+        if (pinnedChats.length >= MAX_PIN_COUNT) {
+            console.warn('[Astra] pinChat: Max pinned chats reached (3).');
+            return false;
+        }
+    }
+
+    if (Store.Cmd && typeof Store.Cmd.pinChat === 'function') {
+     await Store.Cmd.pinChat(chat, pin);
+     return true;
+    }
+    return false;
+   } catch (e) {
+    console.warn('[Astra] pinChat error:', e.message);
+    return false;
    }
-   return false;
-  } catch (e) {
-   console.warn('[Astra] pinChat error:', e.message);
-   return false;
-  }
- };
+  };
 
  window.Astra.muteChat = async (chatId, expiration = -1) => {
   const Store = window.Astra.initializeEngine();

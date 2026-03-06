@@ -255,15 +255,26 @@ class Authenticator:
         """
         if not state: return
         
-        # We set cookies on the context
+        # 1. Set cookies on the context (affects future requests)
         if "cookies" in state:
-            await self._controller.context.add_cookies(state["cookies"])
+            try:
+                await self._controller.context.add_cookies(state["cookies"])
+            except Exception as e:
+                logger.debug(f"Failed to add cookies: {e}")
             
-        # LocalStorage requires being on the origin
+        # 2. LocalStorage injection
         if "localStorage" in state:
-            # We defer this until page.goto happens in client.py
-            # or we can try to use a pending_storage hook in BrowserController
-            self._controller._pending_storage = [{
-                "origin": "https://web.whatsapp.com",
-                "localStorage": state["localStorage"]
-            }]
+            storage_data = state["localStorage"]
+            
+            # If the page is already at the target origin, inject immediately
+            if self._controller.page and "whatsapp.com" in self._controller.page.url:
+                logger.debug("Page active, injecting localStorage immediately...")
+                await self._controller.inject_local_storage(storage_data)
+                # Note: We don't force a reload here, as it might interrupt an active flow.
+                # The next state detection cycle will catch the update.
+            else:
+                # Otherwise queue it for the next navigation (via start() or goto())
+                self._controller._pending_storage = [{
+                    "origin": "https://web.whatsapp.com",
+                    "localStorage": storage_data
+                }]

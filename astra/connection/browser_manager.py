@@ -227,33 +227,55 @@ class BrowserController:
   self._crash_handler = handler
 
  async def get_state(self) -> str:
-  """
-  Detects the current state of WhatsApp Web (QR, Loading, Connected).
-  """
-  if not self._page or self._page.is_closed():
-   return "OFFLINE"
+   """
+   Detects the current state of WhatsApp Web (QR, Loading, Connected).
+   """
+   if not self._page or self._page.is_closed():
+    return "OFFLINE"
 
-  try:
-   # Match using DOM inspection and Global state.
-   return await self._page.evaluate("""
-    () => {
-     const check = (sel) => !!document.querySelector(sel);
+   try:
+    # Match using DOM inspection and Global state.
+    return await self._page.evaluate("""
+     () => {
+      const check = (sel) => !!document.querySelector(sel);
 
-     if (window.Store && window.Store.Stream) {
-      const s = window.Store.Stream;
-      if (s.state === 'CONNECTED' || s.mode === 'MAIN') return "CONNECTED";
+      if (window.Store && window.Store.Stream) {
+       const s = window.Store.Stream;
+       if (s.state === 'CONNECTED' || s.mode === 'MAIN') return "CONNECTED";
+      }
+
+      if (check('[data-testid="side"]') || check('#pane-side')) return "CONNECTED";
+      if (check('[data-testid="qrcode"]')) return "LOGIN_QR";
+      if (check('input[type="tel"]')) return "LOGIN_PHONE";
+      if (check('[data-testid="startup-loading-screen"]')) return "LOADING";
+
+      return "INITIALIZING";
      }
+    """)
+   except Exception as e:
+    err_str = str(e).lower()
+    if "execution context was destroyed" in err_str or "context was closed" in err_str:
+         return "LOADING"
+    logger.debug(f"State detection evaluation failed: {e}")
+    return "ERROR"
 
-     if (check('[data-testid="side"]') || check('#pane-side')) return "CONNECTED";
-     if (check('[data-testid="qrcode"]')) return "LOGIN_QR";
-     if (check('input[type="tel"]')) return "LOGIN_PHONE";
-     if (check('[data-testid="startup-loading-screen"]')) return "LOADING";
+  async def inject_local_storage(self, storage: dict):
+   """
+   Directly injects localStorage data into the active page.
+   """
+   if not self._page or self._page.is_closed():
+    return
 
-     return "INITIALIZING";
-    }
-   """)
-  except Exception:
-   return "ERROR"
+   try:
+    await self._page.evaluate("""
+     (data) => {
+      for (const [key, val] of Object.entries(data)) {
+       localStorage.setItem(key, val);
+      }
+     }
+    """, storage)
+   except Exception as e:
+    logger.warning(f"Manual localStorage injection failed: {e}")
 
  @property
  def context(self) -> BrowserContext:

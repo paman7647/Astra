@@ -246,6 +246,7 @@ class Client:
    # 4. Handle Authentication
    self.status.transition_to(ClientStatus.AUTHENTICATING)
    await self.authenticator.login()
+    await asyncio.sleep(2.0)  # Post-login settling delay
 
    # 5. Mark as Ready
    self.status.transition_to(ClientStatus.READY)
@@ -258,12 +259,16 @@ class Client:
    # 6b. Wire dispatcher → SyncEngine event notification
    self.dispatcher.set_event_callback(self.sync_engine.notify_event_received)
 
-   # 7. Save session metadata + start IDB observer
-   await self._save_session_meta()
-   await self._start_idb_observer()
-
-   # 8. Initial cache population
-   if self.use_cache: await self._populate_cache()
+       # 7. Save session metadata + start IDB observer
+    await self._save_session_meta()
+    
+    try:
+        await self._start_idb_observer()
+        # 8. Initial cache population
+        if self.use_cache: 
+            await self._populate_cache()
+    except Exception as init_err:
+        logger.warning(f"Non-fatal initialization error (IDB/Cache): {init_err}")
 
    # Print post-auth session info
    if self._show_banner:
@@ -276,10 +281,26 @@ class Client:
    logger.info("Client online.")
 
   except Exception as e:
-   logger.error(f"Startup failed: {e}", exc_info=True)
-   self.status.transition_to(ClientStatus.FAILED)
-   await self.stop()
-   raise StartupError(f"Failed to start Astra: {e}", cause=e)
+    err_msg = str(e)
+    is_browser_crash = any(x in err_msg for x in ["Target page, context or browser has been closed", "Execution context was destroyed", "context was closed"])
+    
+    if is_browser_crash and not getattr(self, "_is_restarting", False):
+         logger.warning("Detected browser crash/navigation during startup. Attempting one-time recovery...")
+         self._is_restarting = True
+         try:
+              await self.browser.stop()
+              await asyncio.sleep(2.0)
+              return await self.start()
+         except Exception as restart_err:
+              logger.error(f"Recovery restart failed: {restart_err}")
+    
+    logger.error(f"Startup failed: {e}", exc_info=True)
+    self.status.transition_to(ClientStatus.FAILED)
+    await self.stop()
+    raise StartupError(f"Failed to start Astra: {e}", cause=e)
+   finally:
+    if hasattr(self, "_is_restarting"):
+         delattr(self, "_is_restarting")
 
  async def stop(self):
   """
