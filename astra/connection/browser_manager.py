@@ -259,7 +259,7 @@ class BrowserController:
     logger.debug(f"State detection evaluation failed: {e}")
     return "ERROR"
 
-  async def inject_local_storage(self, storage: dict):
+ async def inject_local_storage(self, storage: dict):
    """
    Directly injects localStorage data into the active page.
    """
