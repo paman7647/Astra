@@ -59,10 +59,18 @@ class MediaMethods:
    logger.info(f"File size ({file_size}) exceeds 100MB. Escalating to document mode.")
    document = True
 
-  final_options = {"quotedMsgId": reply_to} if reply_to else {}
+  final_options = options or {}
+  if reply_to:
+   final_options["quotedMsgId"] = reply_to
+  
   if main_type == 'document' or document:
    main_type = 'document'
    final_options['asDocument'] = True
+  
+  # Forward any extra kwargs into options if not already there
+  for k, v in kwargs.items():
+   if k not in final_options:
+    final_options[k] = v
 
   # Prepare the payload
   payload = {
