@@ -68,6 +68,7 @@ DOWNLOAD_CODE = r"""
   };
 
   window.Astra.retrieveMedia = async (msgId) => {
+    if (typeof msgId !== 'string') return null;
     console.log(`[Astra] retrieveMedia: ${msgId}`);
     const Store = window.Astra.initializeEngine();
     const repo = Store.MessageRepo || Store.MsgRepo;
