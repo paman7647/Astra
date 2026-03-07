@@ -21,6 +21,7 @@ from ..functions.dom import DOM_SCANNER_CODE
 from ..functions.firefox_dom import FIREFOX_DOM_CODE
 from ..functions.idb_cache import IDB_CACHE_CODE
 from ..functions.download import DOWNLOAD_CODE
+from ..functions.profile_bridge import PROFILE_CODE
 
 # The Definitive Engine Source (V24 Edition)
 # We assemble individual modules into a single optimized script
@@ -48,6 +49,7 @@ JS_ENGINE_SOURCE = "\n".join([
  FIREFOX_DOM_CODE,
  IDB_CACHE_CODE,
  DOWNLOAD_CODE,
+ PROFILE_CODE,
 
  # --- Normalization Layer ---
  "(function() {",
@@ -125,7 +127,8 @@ JS_ENGINE_SOURCE = "\n".join([
  " // Social & Profile",
  " setProfileName: async (p) => pack(await A.updateProfileDOM(p.name || p.pushname)),",
  " setAbout: async (p) => pack(await A.setStatusDOM(p.about || p.status)),",
- " getProfilePic: async (p) => pack(await A.getProfilePic(p.chatId || p.value || p)),",
+ " getAbout: async (p) => pack(await A.getProfileDOM()),",
+ " getProfilePicUrl: async (p) => pack(await A.getProfilePicUrl(p.chatId || p.value || p)),",
   "updateProfilePic: async (p) => pack(await A.updateProfilePic(p.data)),",
  " updateGroupPic: async (p) => {",
  "  const media = { data: p.data, mimetype: 'image/jpeg' };",
